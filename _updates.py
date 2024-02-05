@@ -319,7 +319,7 @@ class Mixin:
 
         natural1_prior = torch.zeros(dim_latent, dtype=self.dtype, device=self.device)
         natural2_prior = - 0.5 * diagonalize(
-            1 / self.prior(self.inducing_locations[:1], self.inducing_locations[:1]).squeeze(dim=(-1, -2))
+            1 / self.prior(self.inducing_locations[:1], self.inducing_locations[:1]).squeeze(dim=-1).squeeze(dim=-1)
             )
 
         return natural1_prior, natural2_prior

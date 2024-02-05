@@ -46,7 +46,7 @@ variation = compact_data['variation'].data
 # Find trials with given level of difficulty
 #select_variation = np.where(variation >= 0)[0]
 select_variation = np.where(variation == 3)[0]
-#select_variation = np.where(variation == 0)[0]
+select_variation = np.where(variation == 0)[0]
 
 # Filter the dataset Using the trials with given level of difficulty
 filtered_neural = np.array(neural_observation[select_variation])
@@ -82,10 +82,10 @@ for ii in range(num_observations_tot):
 ds_factor = 0.5
 filtered_images = torch.nn.functional.interpolate(filtered_images.unsqueeze(dim=1), scale_factor=ds_factor, mode='bilinear')
 filtered_images = filtered_images.squeeze(dim=1)
-
+filtered_images = filtered_images[:, 20:110][:, :, 20:110]
 #%%
 
-filtered_images = filtered_images[:, 20:110][:, :, 20:110]
+
 #%%
 
 #%% Plot
@@ -195,7 +195,7 @@ variational_params = {
 
 
 fit_params = {
-    'num_epoch': 20,
+    'num_epoch': 50,
     'dim_latent': dim_latent,
     'prior_params': prior_params,
     'factors_params': factors_params,
