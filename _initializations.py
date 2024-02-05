@@ -218,7 +218,7 @@ class Mixin:
                     lengthscale,
                     fit_scale=fit_scale,
                     fit_lengthscale=fit_lengthscale
-                )
+                ).to(self.device.index)
             else:
                 raise NotImplementedError()
 
