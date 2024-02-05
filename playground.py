@@ -133,7 +133,8 @@ factors_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}}
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}},
+    'dropout': 0.05,
 }
 
 auxiliary_params = {
@@ -156,7 +157,8 @@ variational_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'diag',
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}}
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}},
+    'dropout': 0.05,
 }
 
 
