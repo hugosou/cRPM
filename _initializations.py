@@ -193,6 +193,14 @@ class Mixin:
         if not ('optimizer' in self.fit_params['variational_params'].keys()):
             self.fit_params['variational_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
 
+        # Dropout
+        if not ('optimizer' in self.fit_params['factors_params'].keys()):
+            self.fit_params['factors_params']['dropout'] = 0.0
+        if not ('optimizer' in self.fit_params['auxiliary_params'].keys()):
+            self.fit_params['auxiliary_params']['dropout'] = 0.0
+        if not ('optimizer' in self.fit_params['variational_params'].keys()):
+            self.fit_params['variational_params']['dropout'] = 0.0
+
     def _init_prior(self):
         """ Initialise parameters of k=1..K independent kernels """
 
@@ -238,6 +246,7 @@ class Mixin:
         channels = fit_params["channels"]
         kernel_conv = fit_params["kernel_conv"]
         kernel_pool = fit_params["kernel_pool"]
+        dropout = fit_params["dropout"]
 
         # Fully connected layers parameters
         dim_hidden = fit_params["dim_hidden"]
@@ -259,6 +268,7 @@ class Mixin:
                 dim_hidden=dim_hidden[obsi],
                 non_linearity=non_linearity[obsi],
                 zero_init=False,
+                dropout=dropout,
             ).to(self.device.index)
             recognition_factors.append(neti)
 
@@ -280,6 +290,7 @@ class Mixin:
         channels = fit_params["channels"]
         kernel_conv = fit_params["kernel_conv"]
         kernel_pool = fit_params["kernel_pool"]
+        dropout = fit_params["dropout"]
 
         # Fully connected layers parameters
         dim_hidden = fit_params["dim_hidden"]
@@ -301,6 +312,7 @@ class Mixin:
                 dim_hidden=dim_hidden[obsi],
                 non_linearity=non_linearity[obsi],
                 zero_init=True,
+                dropout=dropout,
             ).to(self.device.index)
             recognition_auxiliary.append(neti)
 
@@ -323,6 +335,7 @@ class Mixin:
             channels = fit_params["channels"]
             kernel_conv = fit_params["kernel_conv"]
             kernel_pool = fit_params["kernel_pool"]
+            dropout = fit_params["dropout"]
 
             # Covariance type
             covariance = fit_params["covariance"]
@@ -332,6 +345,7 @@ class Mixin:
             dim_hidden_merged = fit_params["dim_hidden_merged"]
             non_linearity = fit_params["nonlinearity"]
             non_linearity_merged = fit_params["nonlinearity_merged"]
+
 
             recognition_variational = recognition.MultiInputNet(
                 dim_inputs,
@@ -345,6 +359,7 @@ class Mixin:
                 non_linearity= non_linearity,
                 non_linearity_merged=non_linearity_merged,
                 zero_init=False,
+                dropout=dropout,
             ).to(self.device.index)
 
         elif fit_params['inference_mode'] == 'parametrized':

@@ -195,7 +195,7 @@ variational_params = {
 
 
 fit_params = {
-    'num_epoch': 50,
+    'num_epoch': 200,
     'dim_latent': dim_latent,
     'prior_params': prior_params,
     'factors_params': factors_params,
@@ -221,7 +221,7 @@ print(0)
 from matplotlib import pyplot as plt
 
 plt.figure()
-plt.plot(rpm.loss_tot)
+plt.plot(rpm.loss_tot[3:])
 plt.show()
 
 
