@@ -98,7 +98,6 @@ def print_loss(loss, epoch_id, epoch_num, pct=0.001):
         print(str_epoch + str_loss)
         
 
-
 def get_modulator0(x, amp):
     return (x - 0.5) / (1 - 0.5) * amp + (x - 1) / (0.5 - 1) * 1
 

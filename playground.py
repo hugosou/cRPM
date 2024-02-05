@@ -1,11 +1,10 @@
-#%%
+# %%
 import torch
 from recognition import MultiInputNet, Net
 from flexible_multivariate_normal import vector_to_tril
 
-
 num_observations = 10
-len_observations = 1
+len_observations = 13
 
 # 'default', 'ergodic'
 empirical_mixture = 'default'
@@ -23,7 +22,7 @@ observations = [
     for dims in dim_observations
 ]
 
-#%% Test Single Inputs
+# %% Test Single Inputs
 
 J = 0
 dim_input = dim_observations[J]
@@ -64,7 +63,7 @@ test = Net(
 
 res = test(observations[J])
 
-#%%
+# %%
 
 
 dim_input = dim_observations
@@ -75,8 +74,7 @@ channels = ((1, 2), (), ())
 dim_hidden = ((10, 10), (10,), (10,))
 dropout = 0.0
 
-dim_hidden_merged = (10, )
-
+dim_hidden_merged = (10,)
 
 test_multi = MultiInputNet(
     dim_input=dim_input,
@@ -91,10 +89,10 @@ test_multi = MultiInputNet(
     zero_init=True,
 )
 
-#test = test_multi(observations)
+# test = test_multi(observations)
 
 
-#%%
+# %%
 
 # TODO: add an init to zero for all !!!!!!!!!!!
 
@@ -103,18 +101,16 @@ from recognition import FullyParametrised
 J = 0
 
 test = FullyParametrised(
-                 dim_latent,
-                 dim_observations[J],
-                 covariance='fixed',
-                 init=None,
-                 zero_init=True
-                )
-
+    dim_latent,
+    dim_observations[J],
+    covariance='fixed',
+    init=None,
+    zero_init=True
+)
 
 test(observations[J])
 
-
-#%%
+# %%
 
 from recognition_parametrised_model import RPM
 import torch.nn.functional as F
@@ -143,12 +139,12 @@ auxiliary_params = {
     'kernel_pool': [[1, 1], [], []],
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
-    'covariance': ['full', 'full', 'full'],
+    'covariance': ['fixed', 'fixed', 'fixed'],
     'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}},
 }
 
 variational_params = {
-    'inference_mode': 'amortized',  # 'amortized', 'parametrized'
+    'inference_mode': 'parametrized',  # 'amortized', 'parametrized'
     'channels': [[1, 20, 20], [], []],
     'kernel_conv': [[2, 2], [], []],
     'kernel_pool': [[1, 1], [], []],
@@ -161,9 +157,8 @@ variational_params = {
     'dropout': 0.05,
 }
 
-
 fit_params = {
-    'num_epoch': 10,
+    'num_epoch': 13,
     'dim_latent': dim_latent,
     'prior_params': prior_params,
     'factors_params': factors_params,
@@ -171,11 +166,10 @@ fit_params = {
     'variational_params': variational_params,
 }
 
-
 rpm = RPM(
     observations=observations,
     observation_locations=observation_locations,
-    #inducing_locations=observation_locations[[0, 2, 4, 6, 8]], # torch.linspace(0, 1, 6).unsqueeze(-1),
+    # inducing_locations=observation_locations[[0, 2, 4, 6, 8]], # torch.linspace(0, 1, 6).unsqueeze(-1),
     fit_params=fit_params,
 )
 
@@ -188,5 +182,30 @@ from matplotlib import pyplot as plt
 plt.figure()
 plt.plot(rpm.loss_tot)
 plt.show()
+# %%
+
+
+from save_load import rpm_load, rpm_save
+
+
+
+import pickle
+
+true_latent = None
+model = rpm
+
+
+rpm_save(model, './tmp.pickle', device="cpu")
+
 #%%
 
+la = rpm_load(
+        './tmp.pickle',
+        device="cpu",
+        observations=observations,
+        observation_locations=observation_locations
+)
+
+
+
+#%%
