@@ -194,11 +194,11 @@ class Mixin:
             self.fit_params['variational_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
 
         # Dropout
-        if not ('optimizer' in self.fit_params['factors_params'].keys()):
+        if not ('dropout' in self.fit_params['factors_params'].keys()):
             self.fit_params['factors_params']['dropout'] = 0.0
-        if not ('optimizer' in self.fit_params['auxiliary_params'].keys()):
+        if not ('dropout' in self.fit_params['auxiliary_params'].keys()):
             self.fit_params['auxiliary_params']['dropout'] = 0.0
-        if not ('optimizer' in self.fit_params['variational_params'].keys()):
+        if not ('dropout' in self.fit_params['variational_params'].keys()):
             self.fit_params['variational_params']['dropout'] = 0.0
 
     def _init_prior(self):
