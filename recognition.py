@@ -415,7 +415,7 @@ def init_param2(covariance, dim_latent, zero_init):
     :param dim_latent: Distribution dimension
     :return: param2 matrix
     """
-
+     
     if covariance == 'fixed':
         diag_idx = vector_to_tril_diag_idx(dim_latent)
         param2_init = torch.zeros(int(dim_latent * (dim_latent + 1) / 2), requires_grad=False)
@@ -434,7 +434,7 @@ def init_param2(covariance, dim_latent, zero_init):
 
     else:
         param2 = None
-
+        
     return param2
 
 
