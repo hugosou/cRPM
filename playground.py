@@ -5,7 +5,7 @@ from flexible_multivariate_normal import vector_to_tril
 
 
 num_observations = 10
-len_observations = 13
+len_observations = 1
 
 # 'default', 'ergodic'
 empirical_mixture = 'default'
@@ -64,8 +64,6 @@ test = Net(
 
 res = test(observations[J])
 
-
-print(9)
 #%%
 
 
@@ -115,8 +113,6 @@ test = FullyParametrised(
 
 test(observations[J])
 
-print(9)
-
 
 #%%
 
@@ -125,6 +121,10 @@ import torch.nn.functional as F
 
 observation_locations = torch.linspace(0, 1, len_observations).unsqueeze(-1)
 
+prior_params = {
+    'gp_kernel': 'RBF',
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}}
+}
 
 factors_params = {
     'channels': [[1, 20, 20], [], []],
@@ -133,6 +133,7 @@ factors_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}}
 }
 
 auxiliary_params = {
@@ -142,6 +143,7 @@ auxiliary_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['full', 'full', 'full'],
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}},
 }
 
 variational_params = {
@@ -154,34 +156,35 @@ variational_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'diag',
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-3}}
 }
 
+
 fit_params = {
-    'dim_latent': dim_latent,
-    'gp_kernel': 'RBF',
     'num_epoch': 10,
+    'dim_latent': dim_latent,
+    'prior_params': prior_params,
     'factors_params': factors_params,
     'auxiliary_params': auxiliary_params,
     'variational_params': variational_params,
 }
 
 
-
 rpm = RPM(
     observations=observations,
     observation_locations=observation_locations,
-    inducing_locations= observation_locations[[0, 2, 4, 6, 8]], # torch.linspace(0, 1, 6).unsqueeze(-1),
-    fit_params = fit_params,
+    #inducing_locations=observation_locations[[0, 2, 4, 6, 8]], # torch.linspace(0, 1, 6).unsqueeze(-1),
+    fit_params=fit_params,
 )
 
+rpm.fit(observations)
 
+print(0)
 
+from matplotlib import pyplot as plt
+
+plt.figure()
+plt.plot(rpm.loss_tot)
+plt.show()
 #%%
-
-import kernels
-import torch
-
-aa = kernels.RBFKernel(torch.tensor([0.0]), torch.tensor([1.0]))
-
-
 

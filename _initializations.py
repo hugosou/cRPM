@@ -26,17 +26,21 @@ class Mixin:
         if not ('dim_latent' in self.fit_params.keys()):
             self.fit_params['dim_latent'] = 1
 
+        # Prior
+        if not ('prior_params' in self.fit_params.keys()):
+            self.fit_params['prior_params'] = {}
+
         # Prior Gaussian Process Covariance Kernel Type
-        if not ('gp_kernel' in self.fit_params.keys()):
-            self.fit_params['gp_kernel'] = 'RBF'
+        if not ('gp_kernel' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['gp_kernel'] = 'RBF'
 
         # Prior Gaussian Process Covariance Scale
         if not ('fit_kernel_scale' in self.fit_params.keys()):
-            self.fit_params['fit_kernel_scale'] = False
+            self.fit_params['prior_params']['fit_kernel_scale'] = False
 
         # Prior Gaussian Process Covariance LengthScale
         if not ('fit_kernel_lengthscale' in self.fit_params.keys()):
-            self.fit_params['fit_kernel_lengthscale'] = True
+            self.fit_params['prior_params']['fit_kernel_lengthscale'] = True
 
         # Recognition Factors
         if not ('factors_params' in self.fit_params.keys()):
@@ -171,6 +175,24 @@ class Mixin:
         if not ('num_epoch' in self.fit_params.keys()):
             self.fit_params['num_epoch'] = 500
 
+        # Logger
+        if not ('pct' in self.fit_params.keys()):
+            self.fit_params['pct'] = 0.01
+
+        # Ergodic assumption
+        if not ('ergodic' in self.fit_params.keys()):
+            self.fit_params['ergodic'] = False
+
+        # Default Optimizers
+        if not ('optimizer' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
+        if not ('optimizer' in self.fit_params['factors_params'].keys()):
+            self.fit_params['factors_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
+        if not ('optimizer' in self.fit_params['auxiliary_params'].keys()):
+            self.fit_params['auxiliary_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
+        if not ('optimizer' in self.fit_params['variational_params'].keys()):
+            self.fit_params['variational_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
+
     def _init_prior(self):
         """ Initialise parameters of k=1..K independent kernels """
 
@@ -180,11 +202,11 @@ class Mixin:
             dim_latent = self.dim_latent
 
             # Kernel Type
-            kernel_type = self.fit_params['gp_kernel']
+            kernel_type = self.fit_params['prior_params']['gp_kernel']
 
             # Fitted Parameters
-            fit_scale = self.fit_params['fit_kernel_lengthscale']
-            fit_lengthscale = self.fit_params['fit_kernel_scale']
+            fit_scale = self.fit_params['prior_params']['fit_kernel_lengthscale']
+            fit_lengthscale = self.fit_params['prior_params']['fit_kernel_scale']
 
             # (Length)scales
             scale = 1 * torch.ones(dim_latent)
@@ -348,29 +370,7 @@ class Mixin:
         self.recognition_variational = recognition_variational
 
 
-        # # Default is Full batch
-        # if not ('minibatch_size' in self.fit_params.keys()):
-        #     self.fit_params['minibatch_size'] = self.len_observation
-        #
-        # # Ergodic assumption on the empirical distributions
-        # if not ('ergodic' in self.fit_params.keys()):
-        #     self.fit_params['ergodic'] = False
-        #
-        # # Default Optimizers
-        # if not ('optimizer_prior' in self.fit_params.keys()):
-        #     self.fit_params['optimizer_prior'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
-        # if not ('optimizer_inducing_points' in self.fit_params.keys()):
-        #     self.fit_params['optimizer_inducing_points'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
-        # if not ('optimizer_factors' in self.fit_params.keys()):
-        #     self.fit_params['optimizer_factors'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
-        #
-        # # Logger
-        # if not ('pct' in self.fit_params.keys()):
-        #     self.fit_params['pct'] = 0.01
-        #
-        # # Fit Prior Mean Function
-        # if not ('fit_prior_mean' in self.fit_params.keys()):
-        #     self.fit_params['fit_prior_mean'] = True
+
 
 
 
