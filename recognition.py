@@ -397,7 +397,7 @@ class FullyParametrised(Encoder):
             param2 = torch.zeros(
                 *batch_shape, int(dim_latent * (dim_latent + 1) / 2),
                 device=self.param2.device,
-                dtype=self.param2.device
+                dtype=self.param2.dtype,
             )
             param2[..., diag_idx] = self.param2
 
@@ -406,7 +406,7 @@ class FullyParametrised(Encoder):
             param2 = torch.zeros(
                 *batch_shape, int(dim_latent * (dim_latent + 1) / 2),
                 device=self.param2.device,
-                dtype=self.param2.device
+                dtype=self.param2.dtype,
             )
             param2[..., :] = self.param2
 
