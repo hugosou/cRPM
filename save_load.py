@@ -35,7 +35,7 @@ def rpm_load(
         ) -> RPM:
 
     with open(model_name, 'rb') as outp:
-        loaded_dict = _dictionarize(pickle.load(outp), device)
+        loaded_dict = _dictionarize(pickle.load(outp), device=device)
 
     observations = loaded_dict['observations'] \
         if observations is None else observations
@@ -101,7 +101,7 @@ def _dictionarize(
         raise NotImplementedError()
 
     dict_model = {
-        key: _to_device(dict_model[key], device) for key in dict_model
+        key: _to_device(dict_model[key], device) for key in dict_model.keys()
     }
 
     return dict_model

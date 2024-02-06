@@ -35,12 +35,20 @@ class Mixin:
             self.fit_params['prior_params']['gp_kernel'] = 'RBF'
 
         # Prior Gaussian Process Covariance Scale
-        if not ('fit_kernel_scale' in self.fit_params.keys()):
+        if not ('fit_kernel_scale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['fit_kernel_scale'] = False
 
         # Prior Gaussian Process Covariance LengthScale
-        if not ('fit_kernel_lengthscale' in self.fit_params.keys()):
+        if not ('fit_kernel_lengthscale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['fit_kernel_lengthscale'] = True
+
+        # Prior Scale
+        if not ('scale' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['scale'] = 1.0
+
+        # Prior LengthScale
+        if not ('lengthscale' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['lengthscale'] = 0.1
 
         # Recognition Factors
         if not ('factors_params' in self.fit_params.keys()):
@@ -213,12 +221,16 @@ class Mixin:
             kernel_type = self.fit_params['prior_params']['gp_kernel']
 
             # Fitted Parameters
-            fit_scale = self.fit_params['prior_params']['fit_kernel_lengthscale']
-            fit_lengthscale = self.fit_params['prior_params']['fit_kernel_scale']
+            fit_lengthscale = self.fit_params['prior_params']['fit_kernel_lengthscale']
+            fit_scale = self.fit_params['prior_params']['fit_kernel_scale']
 
             # (Length)scales
-            scale = 1 * torch.ones(dim_latent)
-            lengthscale = 0.01 * torch.ones(dim_latent)
+            scale0 = self.fit_params['prior_params']['scale']
+            lengthscale0 = self.fit_params['prior_params']['lengthscale']
+
+
+            scale = scale0 * torch.ones(dim_latent)
+            lengthscale = lengthscale0 * torch.ones(dim_latent)
 
             if kernel_type == 'RBF':
                 self.prior = kernels.RBFKernel(
