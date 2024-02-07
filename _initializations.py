@@ -406,13 +406,13 @@ class Mixin:
             #     dtype=prior_covariance.dtype,
             # )
 
-            # In this case, the covariance is temporal (!)
-            recognition_variational = recognition.FullyParametrised(
-                num_inducing_points,
-                [num_observation, dim_latent],
-                covariance=covariance,
-                init=(natural1, natural2_vect),
-            ).to(self.device.index)
+            # # In this case, the covariance is temporal (!)
+            # recognition_variational = recognition.FullyParametrised(
+            #     num_inducing_points,
+            #     [num_observation, dim_latent],
+            #     covariance=covariance,
+            #     init=(natural1, natural2_vect),
+            # ).to(self.device.index)
 
             # In this case, the covariance is temporal (!)
             recognition_variational = recognition.FullyParametrised(
