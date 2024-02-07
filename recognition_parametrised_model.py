@@ -1,18 +1,13 @@
 import torch
-import numpy as np
-from recognition import Net, MultiInputNet
 from torch import matmul
 from flexible_multivariate_normal import (
-    NNFlexibleMultivariateNormal,
     FlexibleMultivariateNormal,
-    vector_to_tril,
     kl,
     flexible_kl,
     get_log_normalizer)
 
 from typing import Union, List, Dict
-
-from utils import optimizer_wrapper, print_loss, get_minibatches
+from utils import optimizer_wrapper, print_loss
 
 import kernels
 import recognition
@@ -22,30 +17,16 @@ import _updates
 
 from utils import diagonalize
 
+# TODO: minibatch
+# TODO: do not forward auxiliary
+# TODO: doc RPM
+# TODO: If parametrized: q needs to be full covariance !!!!!
 
-# TODO: Check device and dtype !
-# TODO: check load and save
-# TODO: when minibatching, check that we send as feww as possible.
-#  If fixed variational, filter the output
-# TODO: init auxiliary, update or not auxiliary. Init it to zero (default: true)
-# TODO: add minibatches
-
-# TODO: update inducing points -> if inference mode ask for it only
-# TODO: update variational marginals -> depends on inference mode
-#  Amortized: pass through the network
-#  Inducing Points: compute the marginals
 
 class RPM(_initializations.Mixin, _updates.Mixin):
     """
     Recognition Parametrised Model
 
-    input:
-        TODO: UPDATE THIS DOC
-        dim_latent(tuple): dimension of latent variables
-        observations(list): list of conditionally independent observations
-        fit_params(dict):   dictionary of parameters for the fit
-        recognition(list):  list of recognition networks
-        log_prior(tensor):  log prior probabilities
 
 
     notation: for compactness, we sometimes denote:
@@ -61,8 +42,8 @@ class RPM(_initializations.Mixin, _updates.Mixin):
             observations: Union[torch.Tensor, List[torch.tensor]],
             observation_locations: torch.Tensor,  # len_observation x dim_locations. Location of the Observations
             inducing_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of inducing points
-            fit_params: Dict = None,
             loss_tot: List = None,
+            fit_params: Dict = None,
             prior: kernels.Kernel = None,
             recognition_factors: recognition.Encoder = None,
             recognition_auxiliary: recognition.Encoder = None,
@@ -222,7 +203,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         # Grasp only the m = n distribution for KL estimation
         # From J x N x N x K (x K) to J x N x K (x K)
         diag_id = range(num_observation)
-        factors_delta = self.factors_delta
+        factors_delta = self.dist_delta
         diag_delta_natural1 = factors_delta.natural1[:, diag_id, diag_id]
         diag_delta_natural2 = factors_delta.natural2[:, diag_id, diag_id]
         diag_delta_factors_log_normalizer = factors_delta.log_normalizer[:, diag_id, diag_id]
@@ -372,8 +353,9 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         """Handle observation and inducing Locations"""
 
         # Default: observation location 1D and ordered from 0 to 1
-        self.observation_locations = torch.linspace(0, 1, self.len_observation).unsqueeze(-1) \
-            if self.observation_locations is None else self.observation_locations
+        self.observation_locations = torch.linspace(
+            0, 1, self.len_observation, device=self.device, dtype=self.dtype
+        ).unsqueeze(-1) if self.observation_locations is None else self.observation_locations
 
         # Default: inducing points at every observed location
         self.inducing_locations = self.observation_locations \

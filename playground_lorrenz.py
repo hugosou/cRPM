@@ -188,14 +188,14 @@ import torch.nn.functional as F
 
 observation_locations = torch.linspace(0, 1, len_observations).unsqueeze(-1)
 inducing_locations = observation_locations[
-    torch.floor(torch.linspace(0, len_observations-1, 20)).numpy().astype(int)
+    torch.floor(torch.linspace(0, len_observations-1, 50)).numpy().astype(int)
 ]
 
 prior_params = {
     'gp_kernel': 'RBF',
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-3}},
     'scale': 1,
-    'lengthscale': 0.1,
+    'lengthscale': 0.01,
 }
 
 factors_params = {
@@ -227,7 +227,7 @@ variational_params = {
     'dim_hidden_merged': [],
     'non_linearity': [F.relu],
     'non_linearity_merged': F.relu,
-    'covariance': 'fixed',
+    'covariance': 'full',
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
 }
 

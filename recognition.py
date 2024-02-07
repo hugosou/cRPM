@@ -329,7 +329,8 @@ class FullyParametrised(Encoder):
         if init is None:
             self.param1, self.param2 = self.init_all()
         else:
-            self.param1, self.param2 = init
+            self.param1 = torch.nn.Parameter(init[0], requires_grad=True)
+            self.param2 = torch.nn.Parameter(init[1], requires_grad=True)
 
     def init_all(self):
 

@@ -384,11 +384,36 @@ class Mixin:
             # Covariance type
             covariance = fit_params["covariance"]
 
+            # GP Prior Covariances
+            with torch.no_grad():
+                prior_covariance = self.prior(self.inducing_locations, self.inducing_locations)
+
+            # delta to avoid inversion issues
+            Id = 1e-3 * torch.eye(
+                self.num_inducing_points,
+                dtype=prior_covariance.dtype,
+                device=prior_covariance.device,
+            )
+
+            # Second natural parameters
+            natural2_chol = torch.linalg.cholesky(0.5 * torch.linalg.inv(prior_covariance + Id))
+            natural2_vect = tril_to_vector(natural2_chol).unsqueeze(0).repeat(self.num_observation, 1, 1)
+
+            # 1st natural parameters
+            natural1 = torch.zeros(
+                self.num_observation,
+                self.dim_latent,
+                self.num_inducing_points,
+                dtype=prior_covariance.dtype,
+                device=prior_covariance.device,
+            )
+
             # In this case, the covariance is temporal (!)
             recognition_variational = recognition.FullyParametrised(
                 num_inducing_points,
                 [num_observation, dim_latent],
-                covariance=covariance
+                covariance=covariance,
+                init=(natural1, natural2_vect),
             ).to(self.device.index)
 
         else:

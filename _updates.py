@@ -18,9 +18,6 @@ class Mixin:
         """
         Build all the ration distributions (factors - factors_tilde)
         """
-        # Update fhat and log_gamma
-        # self.log_gamma
-        # self.factors_delta
 
         # Natural Parameters of the factors ~ J x 1 x N x T x K (x K)
         factors_natural1 = self.dist_factors.natural1.unsqueeze(1)
@@ -36,7 +33,7 @@ class Mixin:
         delta_natural2 = factors_natural2 - factors_tilde_natural2
 
         # fhat in the paper
-        self.factors_delta = FlexibleMultivariateNormal(
+        self.dist_delta = FlexibleMultivariateNormal(
             delta_natural1,
             delta_natural2,
             init_natural=True,
@@ -45,7 +42,7 @@ class Mixin:
         )
 
         # Ratio of log-nomaliser differences ~ J x N x N x T
-        delta_log_normalizer = self.factors_delta.log_normalizer - factors_log_normaliser
+        delta_log_normalizer = self.dist_delta.log_normalizer - factors_log_normaliser
 
         # In the ergodic cae, the sum is over T and N
         if self.fit_params['ergodic']:
@@ -68,7 +65,6 @@ class Mixin:
         num_factors = self.num_factors
         len_observation = self.len_observation
         num_observation = self.num_observation
-        num_inducing_points = self.num_inducing_points
 
         # Prior parameters
         natural1_prior, natural2_prior = self._evaluate_prior_marginal()
