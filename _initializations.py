@@ -386,12 +386,12 @@ class Mixin:
 
             # GP Prior Covariances
             with torch.no_grad():
-                prior_covariance = self.prior(self.inducing_locations, self.inducing_locations)
+                prior_covariance = self.prior(self.inducing_locations, self.inducing_locations).detach().to('cpu')
 
             # delta to avoid inversion issues
             Id = 1e-3 * torch.eye(
                 self.num_inducing_points,
-                dtype=prior_covariance.dtype
+                dtype=prior_covariance.dtype,
             )
 
             # Second natural parameters
@@ -414,11 +414,6 @@ class Mixin:
                 init=(natural1, natural2_vect),
             ).to(self.device.index)
 
-            recognition_variational2 = recognition.FullyParametrised(
-                num_inducing_points,
-                [num_observation, dim_latent],
-                covariance=covariance,
-            ).to(self.device.index)
 
         else:
             raise NotImplementedError()
