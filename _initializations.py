@@ -384,27 +384,27 @@ class Mixin:
             # Covariance type
             covariance = fit_params["covariance"]
 
-            # GP Prior Covariances
-            with torch.no_grad():
-                prior_covariance = self.prior(self.inducing_locations, self.inducing_locations).detach().to('cpu')
-
-            # delta to avoid inversion issues
-            Id = 1e-3 * torch.eye(
-                self.num_inducing_points,
-                dtype=prior_covariance.dtype,
-            )
-
-            # Second natural parameters
-            natural2_chol = torch.linalg.cholesky(0.5 * torch.linalg.inv(prior_covariance + Id))
-            natural2_vect = tril_to_vector(natural2_chol).unsqueeze(0).repeat(self.num_observation, 1, 1)
-
-            # 1st natural parameters
-            natural1 = torch.zeros(
-                self.num_observation,
-                self.dim_latent,
-                self.num_inducing_points,
-                dtype=prior_covariance.dtype,
-            )
+            # # GP Prior Covariances
+            # with torch.no_grad():
+            #     prior_covariance = self.prior(self.inducing_locations, self.inducing_locations).detach().to('cpu')
+            #
+            # # delta to avoid inversion issues
+            # Id = 1e-3 * torch.eye(
+            #     self.num_inducing_points,
+            #     dtype=prior_covariance.dtype,
+            # )
+            #
+            # # Second natural parameters
+            # natural2_chol = torch.linalg.cholesky(0.5 * torch.linalg.inv(prior_covariance + Id))
+            # natural2_vect = tril_to_vector(natural2_chol).unsqueeze(0).repeat(self.num_observation, 1, 1)
+            #
+            # # 1st natural parameters
+            # natural1 = torch.zeros(
+            #     self.num_observation,
+            #     self.dim_latent,
+            #     self.num_inducing_points,
+            #     dtype=prior_covariance.dtype,
+            # )
 
             # In this case, the covariance is temporal (!)
             recognition_variational = recognition.FullyParametrised(
