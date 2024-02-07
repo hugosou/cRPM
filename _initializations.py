@@ -391,8 +391,7 @@ class Mixin:
             # delta to avoid inversion issues
             Id = 1e-3 * torch.eye(
                 self.num_inducing_points,
-                dtype=prior_covariance.dtype,
-                device=prior_covariance.device,
+                dtype=prior_covariance.dtype
             )
 
             # Second natural parameters
@@ -405,7 +404,6 @@ class Mixin:
                 self.dim_latent,
                 self.num_inducing_points,
                 dtype=prior_covariance.dtype,
-                device=prior_covariance.device,
             )
 
             # In this case, the covariance is temporal (!)
@@ -414,6 +412,12 @@ class Mixin:
                 [num_observation, dim_latent],
                 covariance=covariance,
                 init=(natural1, natural2_vect),
+            ).to(self.device.index)
+
+            recognition_variational2 = recognition.FullyParametrised(
+                num_inducing_points,
+                [num_observation, dim_latent],
+                covariance=covariance,
             ).to(self.device.index)
 
         else:
