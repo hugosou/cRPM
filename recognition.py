@@ -329,8 +329,7 @@ class FullyParametrised(Encoder):
         if init is None:
             self.param1, self.param2 = self.init_all()
         else:
-            self.param1 = torch.nn.Parameter(init[0], requires_grad=True)
-            self.param2 = torch.nn.Parameter(init[1], requires_grad=True)
+            self.param1, self.param2 = init
 
     def init_all(self):
 
@@ -395,20 +394,12 @@ class FullyParametrised(Encoder):
 
         elif self.covariance == 'diag' or self.covariance == 'fixed_diag':
             diag_idx = vector_to_tril_diag_idx(dim_latent)
-            param2 = torch.zeros(
-                *batch_shape, int(dim_latent * (dim_latent + 1) / 2),
-                device=self.param2.device,
-                dtype=self.param2.dtype,
-            )
+            param2 = torch.zeros(*batch_shape, int(dim_latent * (dim_latent + 1) / 2))
             param2[..., diag_idx] = self.param2
 
         elif self.covariance == 'fixed':
 
-            param2 = torch.zeros(
-                *batch_shape, int(dim_latent * (dim_latent + 1) / 2),
-                device=self.param2.device,
-                dtype=self.param2.dtype,
-            )
+            param2 = torch.zeros(*batch_shape, int(dim_latent * (dim_latent + 1) / 2))
             param2[..., :] = self.param2
 
         else:
