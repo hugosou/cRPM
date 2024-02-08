@@ -60,13 +60,11 @@ class RBFKernel(Kernel):
             self,
             scale,
             lengthscale,
-            fit_scale=False,
-            fit_lengthscale=True
     ):
         super().__init__()
 
-        self.scale = nn.Parameter(scale, requires_grad=fit_scale)
-        self.lengthscale = nn.Parameter(lengthscale, requires_grad=fit_lengthscale)
+        self.scale = scale
+        self.lengthscale = lengthscale
 
     def forward(self, locations1, locations2):
 

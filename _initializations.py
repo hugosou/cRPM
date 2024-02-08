@@ -8,6 +8,7 @@ import kernels
 import recognition
 from utils import diagonalize
 from flexible_multivariate_normal import tril_to_vector
+from prior import GPPrior
 
 
 class Mixin:
@@ -38,17 +39,36 @@ class Mixin:
         if not ('fit_kernel_scale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['fit_kernel_scale'] = False
 
+        # Prior Gaussian Process Covariance Scale
+        if not ('fit_kernel_scale_prior' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['fit_kernel_scale_prior'] = False
+
         # Prior Gaussian Process Covariance LengthScale
         if not ('fit_kernel_lengthscale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['fit_kernel_lengthscale'] = True
+
+        if not ('fit_kernel_lengthscale_prior' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['fit_kernel_lengthscale_prior'] = True
+
+        # Prior Mean Parameter
+        if not ('fit_prior_mean_param' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['fit_prior_mean_param'] = True
 
         # Prior Scale
         if not ('scale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['scale'] = 1.0
 
+        # Prior Scale
+        if not ('scale_prior' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['scale_prior'] = 1.0
+
         # Prior LengthScale
         if not ('lengthscale' in self.fit_params['prior_params'].keys()):
             self.fit_params['prior_params']['lengthscale'] = 0.1
+
+        # Prior LengthScale
+        if not ('lengthscale_prior' in self.fit_params['prior_params'].keys()):
+            self.fit_params['prior_params']['lengthscale_prior'] = 0.1
 
         # Recognition Factors
         if not ('factors_params' in self.fit_params.keys()):
@@ -214,33 +234,55 @@ class Mixin:
 
         if self.prior is None:
 
-            # Number of GP prior
+            # Number of GP prior and IP
             dim_latent = self.dim_latent
+            num_inducing_points = self.num_inducing_points
+
+            # Prior Parameters
+            params = self.fit_params['prior_params']
 
             # Kernel Type
-            kernel_type = self.fit_params['prior_params']['gp_kernel']
+            kernel_type = params['gp_kernel']
 
-            # Fitted Parameters
-            fit_lengthscale = self.fit_params['prior_params']['fit_kernel_lengthscale']
-            fit_scale = self.fit_params['prior_params']['fit_kernel_scale']
+            # Prior's Mean params
+            mean0 = [
+                torch.zeros(dim_latent, num_inducing_points),
+                params['fit_prior_mean_param'],
+            ]
 
-            # (Length)scales
-            scale0 = self.fit_params['prior_params']['scale']
-            lengthscale0 = self.fit_params['prior_params']['lengthscale']
+            # Prior's Mean scale param
+            scale0 = [
+                params['scale_prior'] * torch.ones(dim_latent),
+                params['fit_kernel_scale_prior'],
+            ]
 
+            # Prior's Mean lengthscale param
+            lengthscale0 = [
+                params['lengthscale_prior'] * torch.ones(dim_latent),
+                params['fit_kernel_lengthscale_prior'],
+            ]
 
-            scale = scale0 * torch.ones(dim_latent)
-            lengthscale = lengthscale0 * torch.ones(dim_latent)
+            # Prior Scale Parameters
+            scale1 = [
+                params['scale'] * torch.ones(dim_latent),
+                params['fit_kernel_scale'],
+            ]
 
-            if kernel_type == 'RBF':
-                self.prior = kernels.RBFKernel(
-                    scale,
-                    lengthscale,
-                    fit_scale=fit_scale,
-                    fit_lengthscale=fit_lengthscale
-                ).to(self.device.index)
-            else:
-                raise NotImplementedError()
+            # Prior Lengthscale Parameters
+            lengthscale1 = [
+                params['lengthscale'] * torch.ones(dim_latent),
+                params['fit_kernel_lengthscale'],
+            ]
+
+            self.prior = GPPrior(
+                mean0,
+                scale0,
+                scale1,
+                lengthscale0,
+                lengthscale1,
+                covariance_type0=kernel_type,
+                covariance_type1=kernel_type,
+            )
 
     def _init_factors(self, observations):
         """ Initialize recognition network of each factor """
@@ -386,7 +428,10 @@ class Mixin:
 
             # GP Prior Covariances
             with torch.no_grad():
-                prior_covariance = self.prior(self.inducing_locations, self.inducing_locations).detach().to('cpu')
+                prior_covariance = self.prior.covariance(
+                    self.inducing_locations,
+                    self.inducing_locations
+                ).detach().to('cpu')
 
             # delta to avoid inversion issues
             Id = 1e-3 * torch.eye(

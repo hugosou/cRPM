@@ -68,10 +68,10 @@ class Mixin:
 
         # Prior parameters
         natural1_prior, natural2_prior = self._evaluate_prior_marginal()
-        natural1_prior = natural1_prior.reshape(1, 1, 1, dim_latent)
-        natural2_prior = natural2_prior.reshape(1, 1, 1, dim_latent, dim_latent)
+        natural1_prior = natural1_prior.reshape(1, 1, len_observation, dim_latent)
+        natural2_prior = diagonalize(natural2_prior.reshape(1, 1, len_observation, dim_latent))
 
-        # Init Natural Parameters ~ J x N x K (x K)
+        # Init Natural Parameters ~ J x N x T x K (x K)
         auxiliary1 = torch.zeros(
             num_factors,
             num_observation,
@@ -154,9 +154,15 @@ class Mixin:
             inducing_locations = self.inducing_locations
             observation_locations = self.observation_locations
 
+            # Prior Mean ~ 1 x K x T
+            prior_mean_t = self.prior.mean(observation_locations, inducing_locations).unsqueeze(0)
+
+            # Prior Mean ~ 1 x K x M
+            prior_mean_tau = self.prior.mean(inducing_locations, inducing_locations).unsqueeze(0)
+
             # Kernel Posterior helpers
             K_t_t, K_tau_tau, _, K_t_tau, K_t_tau_K_tau_tau_inv = \
-                self.prior.posteriors(inducing_locations, observation_locations)
+                self.prior.covariance.posteriors(inducing_locations, observation_locations)
 
             # Cov_k(t, tau) inv( Cov_k(tau, tau) ) unsqueezed to ~ 1 x K x T x 1 x M
             K_t_tau_K_tau_tau_inv = K_t_tau_K_tau_tau_inv.unsqueeze(0).unsqueeze(-2)
@@ -166,9 +172,9 @@ class Mixin:
 
             # Variational Marginals Mean Reshaped and Permuted to ~ N x T x K
             marginal_mean = (
-                matmul(
+                prior_mean_t + matmul(
                     K_t_tau_K_tau_tau_inv,
-                    (inducing_mean).unsqueeze(-2).unsqueeze(-1)
+                    (inducing_mean - prior_mean_tau).unsqueeze(-2).unsqueeze(-1)
                 ).squeeze(-1).squeeze(-1)
             ).permute(0, 2, 1)
 
@@ -287,10 +293,10 @@ class Mixin:
             # Cholesky Decomposition of (minus) the second natural parameter
             natural2_chol[ii] = vector_to_tril(reci[..., dim_latent:])
 
-        # Prior parameters
+        # Prior parameters ~ 1 x 1 x T x K (x K)
         natural1_prior, natural2_prior = self._evaluate_prior_marginal()
-        natural1_prior = natural1_prior.reshape(1, 1, 1, dim_latent)
-        natural2_prior = natural2_prior.reshape(1, 1, 1, dim_latent, dim_latent)
+        natural1_prior = natural1_prior.reshape(1, 1, len_observation, dim_latent)
+        natural2_prior = diagonalize(natural2_prior.reshape(1, 1, len_observation, dim_latent))
 
         # Build factor distributions
         natural1 = natural1_prior + natural1
@@ -310,24 +316,34 @@ class Mixin:
         """
         Marginalize prior over time
         Implicit assumption (!): the kernel is stationary and its mean is zero
+        -> The mean should not be zero
+        T x K
         """
+
+        # TODO: weird: the grad is not propagated ?
         dim_latent = self.dim_latent
 
-        natural1_prior = torch.zeros(dim_latent, dtype=self.dtype, device=self.device)
-        natural2_prior = - 0.5 * diagonalize(
-            1 / self.prior(self.inducing_locations[:1], self.inducing_locations[:1]).squeeze(dim=-1).squeeze(dim=-1)
-            )
+        prior_mean = self.prior.mean(
+            self.observation_locations,
+            self.inducing_locations
+        )
 
-        return natural1_prior, natural2_prior
+        prior_cova_diag = self.prior.covariance(
+            self.observation_locations,
+            self.observation_locations
+        ).diagonal(dim1=-1, dim2=-2)
 
-    # def _update_prior(self):
-    #
-    #     prior_mean = torch.zeros(self.dim_latent, self.num_inducing_points, device=self.device, dtype=self.dtype)
-    #     prior_covariance = self.prior(self.inducing_locations, self.inducing_locations)
-    #
-    #     self.dist_prior = FlexibleMultivariateNormal(
-    #         prior_mean,
-    #         prior_covariance,
-    #         init_natural=False,
-    #         init_cholesky=False,
-    #     )
+        natural2_prior = - 0.5 / (1e-6 + prior_cova_diag)
+        natural1_prior = - 2 * natural2_prior * prior_mean
+
+        return natural1_prior.permute(1, 0), natural2_prior.permute(1, 0)
+
+
+        # # Deduce marginal natural parameters
+        # #natural2_prior = - 0.5 / (prior_marginal_covariance + 1e-6)
+        # #natural1_prior = - 2 * natural2_prior * prior_mean
+        #
+        # natural1_prior = torch.zeros(dim_latent, dtype=self.dtype, device=self.device)
+        # natural2_prior = - 0.5 * diagonalize(
+        #     1 / self.prior(self.inducing_locations[:1], self.inducing_locations[:1]).squeeze(dim=-1).squeeze(dim=-1)
+        #     )

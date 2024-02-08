@@ -4,7 +4,7 @@ from recognition import MultiInputNet, Net
 from flexible_multivariate_normal import vector_to_tril
 
 num_observations = 10
-len_observations = 13
+len_observations = 1
 
 # 'default', 'ergodic'
 empirical_mixture = 'default'
@@ -144,7 +144,7 @@ auxiliary_params = {
 }
 
 variational_params = {
-    'inference_mode': 'parametrized',  # 'amortized', 'parametrized'
+    'inference_mode': 'amortized',  # 'amortized', 'parametrized'
     'channels': [[1, 20, 20], [], []],
     'kernel_conv': [[2, 2], [], []],
     'kernel_pool': [[1, 1], [], []],
@@ -169,7 +169,6 @@ fit_params = {
 rpm = RPM(
     observations=observations,
     observation_locations=observation_locations,
-    # inducing_locations=observation_locations[[0, 2, 4, 6, 8]], # torch.linspace(0, 1, 6).unsqueeze(-1),
     fit_params=fit_params,
 )
 
@@ -209,3 +208,35 @@ la = rpm_load(
 
 
 #%%
+
+import torch
+from prior import GPPrior
+
+
+dim_latent = 3
+num_inducing_points = 10
+
+mean0 = torch.rand(dim_latent, num_inducing_points)
+scale0 = torch.rand(dim_latent)
+lengthscale0 = torch.rand(dim_latent)
+
+scale1 = torch.rand(dim_latent)
+lengthscale1 = torch.rand(dim_latent)
+
+
+prior = GPPrior(
+    [mean0, True],
+    [scale0, True],
+    [scale1, True],
+    [lengthscale0, True],
+    [lengthscale1, False],
+)
+
+inducing_locations = torch.linspace(0, 1, num_inducing_points).unsqueeze(-1)
+
+
+prior.covariance(inducing_locations, inducing_locations).shape
+
+prior.scale1
+
+

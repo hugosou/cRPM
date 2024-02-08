@@ -9,7 +9,7 @@ from flexible_multivariate_normal import (
 from typing import Union, List, Dict
 from utils import optimizer_wrapper, print_loss
 
-import kernels
+from prior import GPPrior
 import recognition
 
 import _initializations
@@ -21,6 +21,9 @@ from utils import diagonalize
 # TODO: do not forward auxiliary
 # TODO: doc RPM
 # TODO: If parametrized: q needs to be full covariance !!!!!
+# TODO: Fit he mean of the prior: Important !
+# TODO: Check Update marginals When
+# TODO: modify the variational to include the means !
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):
@@ -44,7 +47,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
             inducing_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of inducing points
             loss_tot: List = None,
             fit_params: Dict = None,
-            prior: kernels.Kernel = None,
+            prior: GPPrior = None,
             recognition_factors: recognition.Encoder = None,
             recognition_auxiliary: recognition.Encoder = None,
             recognition_variational: recognition.Encoder = None,
@@ -99,7 +102,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
 
         with torch.no_grad():
             self._update_all(observations)
-            self._get_loss()
             self.loss_tot.append(self._get_loss().item())
 
     def _update_all(self, observations):
@@ -112,8 +114,12 @@ class RPM(_initializations.Mixin, _updates.Mixin):
     def fit(self, observations):
         """Fit the model to the observations"""
 
+        # Transform Observation in list if necessary
+        observations = [observations]\
+            if not (type(observations) is list) and not (type(observations) is tuple) else observations
+
+
         # Fit params
-        # TODO # TODO# TODO# TODO# TODO# TODO# TODO there is a warning here ?
         fit_params = self.fit_params
         num_epoch = fit_params['num_epoch']
 
@@ -166,7 +172,12 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                 opt.step()
 
             # Logger
-            print_loss(self.loss_tot[-1], epoch + 1, num_epoch, pct=self.fit_params['pct'])
+            print_loss(
+                self.loss_tot[-1],
+                epoch + 1,
+                num_epoch,
+                pct=self.fit_params['pct']
+            )
 
     def _get_loss(self):
 
@@ -249,16 +260,15 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         inference_mode = self.fit_params['variational_params']['inference_mode']
 
         # Prior's Mean and Variance: size ~ K x M x (x M)
-        prior_mean = torch.zeros(self.dim_latent, self.num_inducing_points, device=self.device, dtype=self.dtype)
-        prior_nat1 = torch.zeros(self.dim_latent, self.num_inducing_points, device=self.device, dtype=self.dtype)
-        prior_vari = self.prior(self.inducing_locations, self.inducing_locations)
+        prior_mean = self.prior.mean(self.inducing_locations, self.inducing_locations)
+        prior_vari = self.prior.covariance(self.inducing_locations, self.inducing_locations)
 
         if inference_mode == 'amortized':
 
             # To size ~ 1 x K x M x (x M)
             prior_mean = prior_mean.unsqueeze(0)
-            prior_nat1 = prior_nat1.unsqueeze(0)
             prior_vari = prior_vari.unsqueeze(0)
+            # prior_nat1 = prior_nat1.unsqueeze(0)
 
             # Amortized Variational Parameters: size N x M x K ( x K)
             variational_natural = (self.dist_variational.natural1, self.dist_variational.natural2)
@@ -271,8 +281,10 @@ class RPM(_initializations.Mixin, _updates.Mixin):
 
                 # Prior's Natural Parameters (reshape only works since M = 1)
                 prior_mean = prior_mean.reshape(1, 1, self.dim_latent)
-                prior_nat1 = prior_nat1.reshape(1, 1, self.dim_latent)
                 prior_vard = prior_vari.reshape(1, 1, self.dim_latent)
+                 # TODO Check this when M = 1
+                #prior_nat1 = prior_nat1.reshape(1, 1, self.dim_latent)
+                prior_nat1 = prior_mean / prior_vard
                 prior_nat2 = - 0.5 * diagonalize(1 / (prior_vard + 1e-6))
                 prior_natural = (prior_nat1, prior_nat2)
 
@@ -399,6 +411,10 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                      'Fix: Use diagonal covariance or parametrized inference.')
 
         elif inference_mode == 'parametrized':
+
+            assert self.fit_params['variational_params']['covariance'] == 'full', \
+                ('Parametrized inference must use full covariance. '
+                 'Fix: Modify variational_params or use amortized inference')
 
             assert self.len_observation > 1, \
                 ('Full parametrisation not recommended for RP-FA. '
