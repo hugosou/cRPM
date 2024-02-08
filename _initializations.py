@@ -282,7 +282,7 @@ class Mixin:
                 lengthscale1,
                 covariance_type0=kernel_type,
                 covariance_type1=kernel_type,
-            )
+            ).to(self.device.index)
 
     def _init_factors(self, observations):
         """ Initialize recognition network of each factor """

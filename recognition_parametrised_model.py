@@ -20,6 +20,7 @@ from utils import diagonalize
 # TODO: minibatch
 # TODO: do not forward auxiliary
 # TODO: doc RPM
+# TODO: Double check save load
 # TODO: If parametrized: q needs to be full covariance !!!!!
 # TODO: Fit he mean of the prior: Important !
 # TODO: Check Update marginals When
