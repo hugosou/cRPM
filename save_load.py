@@ -32,7 +32,7 @@ def rpm_load(
         device: str = "cpu",
         observations:Union[torch.Tensor, List[torch.Tensor], Tuple[torch.Tensor]] = None,
         observation_locations:torch.Tensor = None,
-        ) -> RPM:
+        ) -> (RPM, List[torch.Tensor]):
 
     with open(model_name, 'rb') as outp:
         loaded_dict = _dictionarize(pickle.load(outp), device=device)
@@ -54,7 +54,7 @@ def rpm_load(
                 recognition_variational = loaded_dict['recognition_variational'],
     )
 
-    return loaded_rpm
+    return loaded_rpm, observations
 
 
 def _to_device(x, device):

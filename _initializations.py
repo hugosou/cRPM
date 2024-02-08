@@ -64,11 +64,11 @@ class Mixin:
 
         # Prior LengthScale
         if not ('lengthscale' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['lengthscale'] = 0.1
+            self.fit_params['prior_params']['lengthscale'] = 0.01
 
         # Prior LengthScale
         if not ('lengthscale_prior' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['lengthscale_prior'] = 0.1
+            self.fit_params['prior_params']['lengthscale_prior'] = 0.01
 
         # Recognition Factors
         if not ('factors_params' in self.fit_params.keys()):

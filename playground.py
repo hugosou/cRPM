@@ -22,6 +22,35 @@ observations = [
     for dims in dim_observations
 ]
 
+#%%
+
+
+import torch
+if torch.backends.mps.is_available():
+    mps_device = torch.device("mps")
+    x = torch.ones(1, device=mps_device)
+    print (x)
+else:
+    print ("MPS device not found.")
+
+
+from time import time
+import numpy as np
+
+#%%
+
+
+x1 = torch.rand(10000, 10000)
+
+x2 = torch.rand((1000, 1000), device= mps_device)
+
+#%%
+
+t0 = time()
+torch.linalg.matmul(x1, x1)
+t1 = time()
+print(str(np.round(t1 - t0, 2)) + 'sec')
+
 # %% Test Single Inputs
 
 J = 0

@@ -167,7 +167,7 @@ observation_locations = torch.linspace(0, 1, len_observations, dtype=dtype, devi
 inducing_locations = torch.linspace(0, 1, num_inducing_points, dtype=dtype, device=device).unsqueeze(-1)
 
 # Break Into Multiple Factors
-num_factors = 1
+num_factors = 3
 num_full = (np.floor(dim_observations / num_factors)).astype(int)
 obs = tuple([observations[..., num_full*i:num_full*(i+1)] for i in range(num_factors)])
 
@@ -199,40 +199,40 @@ prior_params = {
 }
 
 factors_params = {
-    'channels': [[]],
-    'kernel_conv': [[]],
-    'kernel_pool': [[]],
-    'dim_hidden': [[10, 10]],
-    'non_linearity': [F.relu],
-    'covariance': ['fixed'],
+    'channels': [[], [], []],
+    'kernel_conv': [[], [], []],
+    'kernel_pool': [[], [], []],
+    'dim_hidden': [[10, 10], [10, 10], [10, 10]],
+    'non_linearity': [F.relu, F.relu, F.relu],
+    'covariance': ['fixed', 'fixed', 'fixed'],
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
 }
 
 auxiliary_params = {
-    'channels': [[]],
-    'kernel_conv': [[]],
-    'kernel_pool': [[]],
-    'dim_hidden': [[10, 10]],
-    'non_linearity': [F.relu],
-    'covariance': ['fixed'],
+    'channels': [[], [], []],
+    'kernel_conv': [[], [], []],
+    'kernel_pool': [[], [], []],
+    'dim_hidden': [[10, 10], [10, 10], [10, 10]],
+    'non_linearity': [F.relu, F.relu, F.relu],
+    'covariance': ['fixed', 'fixed', 'fixed'],
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
 }
 
 variational_params = {
     'inference_mode': 'parametrized',  # 'amortized', 'parametrized'
-    'channels': [[]],
-    'kernel_conv': [[]],
-    'kernel_pool': [[]],
-    'dim_hidden': [[10, 10]],
+    'channels': [[], [], []],
+    'kernel_conv': [[], [], []],
+    'kernel_pool': [[], [], []],
+    'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'dim_hidden_merged': [],
-    'non_linearity': [F.relu],
+    'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'full',
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
 }
 
 fit_params = {
-    'num_epoch': 10000,
+    'num_epoch': 10,
     'dim_latent': 3,
     'prior_params': prior_params,
     'factors_params': factors_params,
@@ -241,7 +241,7 @@ fit_params = {
 }
 
 rpm = RPM(
-    observations=observations,
+    observations=obs,
     observation_locations=observation_locations,
     inducing_locations=inducing_locations,
     fit_params=fit_params,
@@ -252,6 +252,59 @@ rpm = RPM(
 #%%
 
 rpm.fit(obs)
+
+#%%
+
+
+# from save_load import rpm_load, rpm_save
+# rpm_save(rpm, './tmp.pickle')
+# rpm_loaded = rpm_load('./tmp.pickle', observations=observations)
+
+#%%
+
+
+
+#%%
+
+
+
+
+#%%
+
+
+
+plot_summary(
+    rpm=rpm,
+    plot_id_factors=[0],
+    plot_id_observations='all',
+    plot_variational=False,
+    plot_regressed=True,
+    plot_variance=False,
+    plot_true=True,
+    latent_true=latent_true,
+    regress_param=None,
+    plot_type='3D',
+)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #%%
 from matplotlib import pyplot as plt
