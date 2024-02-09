@@ -196,6 +196,11 @@ prior_params = {
     'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
     'scale': 1,
     'lengthscale': 0.01,
+    'fit_kernel_scale': False,
+    'fit_kernel_scale_prior': False,
+    'fit_kernel_lengthscale': True,
+    'fit_kernel_lengthscale_prior': False,
+    'fit_prior_mean_param': False,
 }
 
 factors_params = {
@@ -262,10 +267,10 @@ plot_loss(rpm)
 plot_rpgpfa_summary(
     rpm=rpm,
     plot_id_factors=[0],
-    plot_id_observations=[1],
+    plot_id_observations=[0],
     plot_variational=True,
     plot_regressed=False,
-    plot_variance=False,
+    plot_variance=True,
     plot_true=True,
     latent_true=latent_true,
     regress_param=None,
