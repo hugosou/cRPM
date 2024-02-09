@@ -11,7 +11,7 @@ from utils import diagonalize
 
 class Mixin:
     """
-        Mixin class containing necessary methods for updating RPGPFA model distributions
+        Mixin class containing necessary methods for updating RPM model distributions
     """
 
     def _update_delta(self):

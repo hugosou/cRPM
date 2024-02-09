@@ -29,7 +29,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Dimension of the problem
 dim_observations = 100
-num_observations = 10
+num_observations = 1
 len_observations = 100
 num_inducing_points = 25
 dim_latent_true = 3
@@ -193,7 +193,7 @@ inducing_locations = observation_locations[
 
 prior_params = {
     'gp_kernel': 'RBF',
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-3}},
+    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
     'scale': 1,
     'lengthscale': 0.01,
 }
@@ -205,7 +205,7 @@ factors_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
+    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
 }
 
 auxiliary_params = {
@@ -215,7 +215,7 @@ auxiliary_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
+    'optimizer': {'name': 'RMSprop', 'param': {'lr': 0e-3}},
 }
 
 variational_params = {
@@ -228,16 +228,17 @@ variational_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'full',
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-2}},
+    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
 }
 
 fit_params = {
-    'num_epoch': 10,
+    'num_epoch': 10000,
     'dim_latent': 3,
     'prior_params': prior_params,
     'factors_params': factors_params,
     'auxiliary_params': auxiliary_params,
     'variational_params': variational_params,
+    'ergodic': True,
 }
 
 rpm = RPM(
@@ -250,37 +251,51 @@ rpm = RPM(
 rpm.fit(obs)
 
 #%%
+from utils_process import plot_rpgpfa_summary, plot_loss, plot_rpgpfa_mixture
 
-
-# from save_load import rpm_load, rpm_save
-# rpm_save(rpm, './tmp.pickle')
-# rpm_loaded = rpm_load('./tmp.pickle', observations=observations)
+plot_loss(rpm)
 
 #%%
 
 
-
-#%%
-
-
-
-
-#%%
-
-from utils_process import plot_rpgpfa_summary
 
 plot_rpgpfa_summary(
     rpm=rpm,
     plot_id_factors=[0],
     plot_id_observations=[1],
     plot_variational=True,
-    plot_regressed=True,
-    plot_variance=True,
+    plot_regressed=False,
+    plot_variance=False,
     plot_true=True,
     latent_true=latent_true,
     regress_param=None,
     plot_type='linear',
 )
+
+
+#%%
+
+plot_rpgpfa_mixture(
+    rpm,
+    plot_id_factor=0,
+    plot_id_index=0,
+    plot_locations=50,
+    plot_num_std=5,
+)
+
+
+#%%
+
+
+
+# from save_load import rpm_load, rpm_save
+# rpm_save(rpm, './tmp.pickle')
+# rpm_loaded = rpm_load('./tmp.pickle', observations=observations)
+
+
+#%%
+
+
 
 
 #%%
@@ -300,14 +315,18 @@ from utils import diagonalize
 
 from utils_process import plot_rpgpfa_mixture
 
-plot_rpgpfa_mixture(
-    rpm,
-    plot_id_factor=0,
-    plot_id_index=0,
-    plot_locations=50,
-    plot_num_std=5,
-)
 
+
+
+#%%
+
+
+from typing import Any
+
+
+
+aa = {}
+_default_field(aa, key='dd', default= 0)
 
 
 

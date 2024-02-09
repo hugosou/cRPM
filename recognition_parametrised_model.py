@@ -1,5 +1,7 @@
 import torch
 from torch import matmul
+from torch.utils._sympy.functions import Where
+
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
     kl,
@@ -18,26 +20,49 @@ import _updates
 from utils import diagonalize
 
 # TODO: minibatch
+# TODO: scheduler
 # TODO: do not forward auxiliary
-# TODO: doc RPM
 # TODO: Check Savings and loading
-# TODO: PLot marginals and see how do they compare with the mean
 # TODO: rotate to diagonalize covariances
-# Check Ergodic
-# Check Amortized
+# TODO: Check Amortized
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):
     """
-    Recognition Parametrised Model
+    Recognition Parametrised Model (RPM)
 
+    Summary:
+        Flexible Class for Recognition Parametrised Factor Analysis (RPFA).
+        and Recognition Parametrised Gaussian Process Factor Analysis (RPGPFA).
 
+    Args:
+        - observations (torch.Tensor or List[torch.Tensor]): Multimodal (possibly time series) observations.
+            Sizes:
+                len(observations) = num_factors
+                observations[j] ~ num_observations x len_observations x *dim_j
+            Where:
+                num_factors: number of conditionally independent factors
+                num_observations: number of observation samples
+                len_observations: length of the time series
+                dim_j: dimension of j=th observations
+        - observation_locations (torch.Tensor): Locations (e.g. time) at which observations are recorded
+            Sizes:
+                len_observations x dim_observation_locations
+        - inducing_locations (torch.Tensor): Locations (e.g. time) at of inducing points
+        - loss_tot (List[float]): Stored Loss defined as - Free Energy
+        - fit_params (Dict): Fit Parameters. See _initializations.py for Details
+        - prior (GPPrior): Latent Prior Distribution
+        - recognition_factors ()
+        - recognition_factors (recognition.Encoder)
+        - recognition_auxiliary (recognition.Encoder)
+        - recognition_variational (recognition.Encoder)
 
     notation: for compactness, we sometimes denote:
         N: num_observations
         T: len_observations
         K: dim_latent
         M: num_inducing_points (<= T)
+
 
     """
 
@@ -255,8 +280,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                     KL div      size: N x K
         """
 
-        # TODO: I haven't tripple proof read those KL..
-
         # Amortized or Parametrized variational inference
         inference_mode = self.fit_params['variational_params']['inference_mode']
 
@@ -283,8 +306,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                 # Prior's Natural Parameters (reshape only works since M = 1)
                 prior_mean = prior_mean.reshape(1, 1, self.dim_latent)
                 prior_vard = prior_vari.reshape(1, 1, self.dim_latent)
-                 # TODO Check this when M = 1
-                #prior_nat1 = prior_nat1.reshape(1, 1, self.dim_latent)
                 prior_nat1 = prior_mean / prior_vard
                 prior_nat2 = - 0.5 * diagonalize(1 / (prior_vard + 1e-6))
                 prior_natural = (prior_nat1, prior_nat2)

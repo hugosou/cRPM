@@ -11,6 +11,14 @@ from flexible_multivariate_normal import tril_to_vector
 from prior import GPPrior
 
 
+def _default_field(param: dict, key: str, default):
+    if key not in param:
+        param[key] = default
+
+def _repeat_list(val, num):
+    return [val for _ in range(num)]
+
+
 class Mixin:
     """
         Mixin class containing necessary methods for initializing RPGPFA model
@@ -23,211 +31,81 @@ class Mixin:
         if self.fit_params is None:
             self.fit_params = {}
 
+        # Number of conditionally independent factors
+        num_factors = self.num_factors
+
         # Latent dimensions
-        if not ('dim_latent' in self.fit_params.keys()):
-            self.fit_params['dim_latent'] = 1
-
-        # Prior
-        if not ('prior_params' in self.fit_params.keys()):
-            self.fit_params['prior_params'] = {}
-
-        # Prior Gaussian Process Covariance Kernel Type
-        if not ('gp_kernel' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['gp_kernel'] = 'RBF'
-
-        # Prior Gaussian Process Covariance Scale
-        if not ('fit_kernel_scale' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['fit_kernel_scale'] = False
-
-        # Prior Gaussian Process Covariance Scale
-        if not ('fit_kernel_scale_prior' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['fit_kernel_scale_prior'] = False
-
-        # Prior Gaussian Process Covariance LengthScale
-        if not ('fit_kernel_lengthscale' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['fit_kernel_lengthscale'] = True
-
-        if not ('fit_kernel_lengthscale_prior' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['fit_kernel_lengthscale_prior'] = True
-
-        # Prior Mean Parameter
-        if not ('fit_prior_mean_param' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['fit_prior_mean_param'] = True
-
-        # Prior Scale
-        if not ('scale' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['scale'] = 1.0
-
-        # Prior Scale
-        if not ('scale_prior' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['scale_prior'] = 1.0
-
-        # Prior LengthScale
-        if not ('lengthscale' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['lengthscale'] = 0.01
-
-        # Prior LengthScale
-        if not ('lengthscale_prior' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['lengthscale_prior'] = 0.01
-
-        # Recognition Factors
-        if not ('factors_params' in self.fit_params.keys()):
-            self.fit_params['factors_params'] = {}
-
-        # Factors Channels
-        if not ('channels' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['channels'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Factors 2D Convolutions
-        if not ('kernel_conv' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['kernel_conv'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Factors 2D Pooling
-        if not ('kernel_pool' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['kernel_pool'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Factors MLP Layers
-        if not ('dim_hidden' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['dim_hidden'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Factors Activation function
-        if not ('nonlinearity' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['nonlinearity'] = [
-                F.relu for _ in range(self.num_factors)
-            ]
-
-        # Factors Covariance Constraint
-        if not ('covariance' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['covariance'] = [
-                'fixed' for _ in range(self.num_factors)
-            ]
-
-        # Recognition Auxiliary Factors
-        if not ('auxiliary_params' in self.fit_params.keys()):
-            self.fit_params['auxiliary_params'] = {}
-
-        # Auxiliary Factors Channels
-        if not ('channels' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['channels'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Auxiliary Factors 2D Convolutions
-        if not ('kernel_conv' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['kernel_conv'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Auxiliary Factors 2D Pooling
-        if not ('kernel_pool' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['kernel_pool'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Auxiliary Factors MLP Layers
-        if not ('dim_hidden' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['dim_hidden'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Auxiliary Factors Activation function
-        if not ('nonlinearity' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['nonlinearity'] = [
-                F.relu for _ in range(self.num_factors)
-            ]
-
-        # Auxiliary Factors Covariance Constraint
-        if not ('covariance' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['covariance'] = [
-                'fixed' for _ in range(self.num_factors)
-            ]
-
-        # Variational
-        if not ('variational_params' in self.fit_params.keys()):
-            self.fit_params['variational_params'] = {}
-
-        if not ('inference_mode' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['inference_mode'] = 'amortized'
-
-        # Variational Channels
-        if not ('channels' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['channels'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Variational 2D Convolutions
-        if not ('kernel_conv' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['kernel_conv'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Variational 2D Pooling
-        if not ('kernel_pool' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['kernel_pool'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Variational MLP Layers
-        if not ('dim_hidden' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['dim_hidden'] = [
-                () for _ in range(self.num_factors)
-            ]
-
-        # Variational Merged MLP Layers
-        if not ('dim_hidden_merged' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['dim_hidden_merged'] = ()
-
-        # Variational Factors Activation function
-        if not ('nonlinearity' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['nonlinearity'] = [
-                F.relu for _ in range(self.num_factors)
-            ]
-
-        # Variational Factors Activation function (post merge)
-        if not ('nonlinearity_merged' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['nonlinearity_merged'] = F.relu
-
-        # Variational Factors Covariance Constraint
-        if not ('covariance' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['covariance'] = 'fixed'
+        _default_field(self.fit_params, key='dim_latent', default=1)
 
         # Iterations
-        if not ('num_epoch' in self.fit_params.keys()):
-            self.fit_params['num_epoch'] = 500
+        _default_field(self.fit_params, key='num_epoch', default=500)
 
         # Logger
-        if not ('pct' in self.fit_params.keys()):
-            self.fit_params['pct'] = 0.01
+        _default_field(self.fit_params, key='pct', default=0.01)
 
         # Ergodic assumption
-        if not ('ergodic' in self.fit_params.keys()):
-            self.fit_params['ergodic'] = False
+        _default_field(self.fit_params, key='ergodic', default=False)
 
-        # Default Optimizers
-        if not ('optimizer' in self.fit_params['prior_params'].keys()):
-            self.fit_params['prior_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
-        if not ('optimizer' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
-        if not ('optimizer' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
-        if not ('optimizer' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
+        # Default Prior Parameters
+        _default_field(self.fit_params, key ='prior_params', default ={})
+        # Kernel Types
+        _default_field(self.fit_params['prior_params'], key='gp_kernel', default='RBF')
+        # Fit/Fix Parameters
+        _default_field(self.fit_params['prior_params'], key='fit_kernel_scale', default=False)
+        _default_field(self.fit_params['prior_params'], key='fit_kernel_scale_prior', default=False)
+        _default_field(self.fit_params['prior_params'], key='fit_kernel_lengthscale', default=True)
+        _default_field(self.fit_params['prior_params'], key='fit_kernel_lengthscale_prior', default=True)
+        _default_field(self.fit_params['prior_params'], key='fit_prior_mean_param', default=True)
+        # Set Default/Init Parameters
+        _default_field(self.fit_params['prior_params'], key='scale', default=1.0)
+        _default_field(self.fit_params['prior_params'], key='scale_prior', default=1.0)
+        _default_field(self.fit_params['prior_params'], key='lengthscale', default=0.01)
+        _default_field(self.fit_params['prior_params'], key='lengthscale_prior', default=0.02)
+        # Optimizer
+        _default_field(
+            self.fit_params['prior_params'], key='optimizer', default={'name': 'Adam', 'param': {'lr': 1e-3}}
+        )
 
+        # Default Recognition Factors Parameters
+        _default_field(self.fit_params, key='factors_params', default={})
+        # Network Parameters
+        _default_field(self.fit_params['factors_params'], key='channels', default= _repeat_list((), num_factors))
+        _default_field(self.fit_params['factors_params'], key='kernel_conv', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['factors_params'], key='kernel_pool', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['factors_params'], key='dim_hidden', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['factors_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['factors_params'], key='covariance', default=_repeat_list('fixed', num_factors))
         # Dropout
-        if not ('dropout' in self.fit_params['factors_params'].keys()):
-            self.fit_params['factors_params']['dropout'] = 0.0
-        if not ('dropout' in self.fit_params['auxiliary_params'].keys()):
-            self.fit_params['auxiliary_params']['dropout'] = 0.0
-        if not ('dropout' in self.fit_params['variational_params'].keys()):
-            self.fit_params['variational_params']['dropout'] = 0.0
+        _default_field(self.fit_params['factors_params'], key='dropout', default=0.0)
+        # Optimizer
+        _default_field(self.fit_params['factors_params'], key='optimizer', default={'name': 'Adam', 'param': {'lr': 1e-3}})
+
+        # Default Recognition Auxiliary Factors Parameters
+        _default_field(self.fit_params, key='auxiliary_params', default={})
+        # Network Parameters
+        _default_field(self.fit_params['auxiliary_params'], key='channels', default= _repeat_list((), num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='kernel_conv', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='kernel_pool', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='dim_hidden', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='covariance', default=_repeat_list('fixed', num_factors))
+        _default_field(self.fit_params['auxiliary_params'], key='dropout', default=0.0)
+        _default_field(self.fit_params['auxiliary_params'], key='optimizer', default={'name': 'Adam', 'param': {'lr': 1e-3}})
+
+        # Default Variational Parameters
+        _default_field(self.fit_params, key='variational_params', default={})
+        _default_field(self.fit_params['variational_params'], key='inference_mode', default='amortized')
+        # Network Parameters
+        _default_field(self.fit_params['variational_params'], key='channels', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['variational_params'], key='kernel_conv', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['variational_params'], key='kernel_pool', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['variational_params'], key='dim_hidden', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['variational_params'], key='dim_hidden_merged', default=_repeat_list((), num_factors))
+        _default_field(self.fit_params['variational_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['variational_params'], key='nonlinearity_merged', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['variational_params'], key='covariance', default=_repeat_list('fixed', num_factors))
+        _default_field(self.fit_params['variational_params'], key='dropout', default=0.0)
+        _default_field(self.fit_params['variational_params'], key='optimizer', default={'name': 'Adam', 'param': {'lr': 1e-3}})
 
     def _init_prior(self):
         """ Initialise parameters of k=1..K independent kernels """
@@ -468,88 +346,208 @@ class Mixin:
 
 
 
-    # def _init_prior_mean_param(self):
-    #     """Initialize the mean parametrization of k=1..K independent prior Gaussian Processes"""
-    #
-    #     fit_prior_mean = self.fit_params['fit_prior_mean']
-    #     dim_latent = self.fit_params['dim_latent']
-    #     num_inducing_point = self.num_inducing_point
-    #
-    #     # Mean vector ~ dim_latent x num_inducing
-    #     prior_mean_param_tmp = np.zeros((dim_latent, num_inducing_point))
-    #     prior_mean_param = torch.tensor(prior_mean_param_tmp, device=self.device, dtype=self.dtype,
-    #                                     requires_grad=fit_prior_mean)
-    #
-    #     # The scale is fixed
-    #     scale_tmp = np.ones(dim_latent)
-    #     scale = torch.tensor(scale_tmp, dtype=self.dtype, device=self.device, requires_grad=False)
-    #
-    #     # Lengthscale
-    #     lengthscale_tmp = 0.02 * np.ones(dim_latent)
-    #     lengthscale = torch.tensor(lengthscale_tmp, dtype=self.dtype, device=self.device, requires_grad=fit_prior_mean)
-    #
-    #     self.prior_mean_param = (prior_mean_param, scale, lengthscale)
-    #
-    # def _init_kernel(self):
-    #     """ Initialise parameters of k=1..K independent kernels """
-    #
-    #     # Number of GP prior
-    #     dim_latent = self.dim_latent
-    #
-    #     # Grasp Kernel Type
-    #     kernel_name = self.fit_params['gp_kernel']
-    #
-    #     dtype = self.dtype
-    #     device = self.device
-    #
-    #     copy_scale = False
-    #
-    #     # (Length)scales
-    #     scale = 1 * torch.ones(dim_latent, dtype=dtype, device=device, requires_grad=False)
-    #     lengthscale = 0.01 * torch.ones(dim_latent, dtype=dtype, device=device, requires_grad=False)
-    #
-    #     if kernel_name == 'RBF':
-    #         self.prior_covariance_kernel = kernels.RBFKernel(scale, lengthscale, copy_scale=copy_scale)
-    #
-    #     elif kernel_name == 'RQ':
-    #         alpha = torch.ones(dim_latent, dtype=dtype, device=device, requires_grad=False)
-    #         self.prior_covariance_kernel = kernels.RQKernel(scale, lengthscale, alpha, copy_scale=copy_scale)
-    #
-    #     elif 'Matern' in kernel_name:
-    #         nu = int(kernel_name[-2]) / int(kernel_name[-1])
-    #         self.prior_covariance_kernel = kernels.MaternKernel(scale, lengthscale, nu, copy_scale=copy_scale)
-    #
-    #     elif kernel_name == 'Periodic':
-    #         period = 0.1 * torch.ones(dim_latent, dtype=dtype, device=device, requires_grad=False)
-    #         self.prior_covariance_kernel = kernels.PeriodicKernel(scale, lengthscale, period, copy_scale=copy_scale)
-    #
-    #     else:
-    #         raise NotImplementedError()
-    #
-
-
-
-    #
-    # def _init_inducing_points(self):
-    #     """ Initialise the inducing points variational distribution """
-    #
-    #     # Setting and dimensions
-    #     dtype = self.dtype
-    #     device = self.device
-    #     dim_latent = self.dim_latent
-    #     num_observation = self.num_observation
-    #     num_inducing_point = self.num_inducing_point
-    #     inducing_locations = self.inducing_locations
-    #
-    #     # 1st Natural Parameter
-    #     natural1_tmp = torch.zeros(num_observation, dim_latent, num_inducing_point, dtype=dtype, device=device)
-    #     natural1 = natural1_tmp.clone().detach().requires_grad_(True)
-    #
-    #     # 2nd Natural Parameter is initialized using prior
-    #     prior_covariance = self.prior_covariance_kernel(inducing_locations, inducing_locations).detach().clone()
-    #     covariance_tmp = prior_covariance.unsqueeze(0).repeat(self.num_observation, 1, 1, 1)
-    #     Id = diagonalize(torch.ones(num_observation, dim_latent, num_inducing_point, dtype=dtype, device=device))
-    #     natural2_chol = cholesky(0.5 * torch.linalg.inv(covariance_tmp + 1e-3 * Id))
-    #     natural2_chol_vec = tril_to_vector(natural2_chol).clone().detach().requires_grad_(True)
-    #
-    #     self.inducing_points_param = (natural1, natural2_chol_vec)
+# Latent dimensions
+#         if not ('dim_latent' in self.fit_params.keys()):
+#             self.fit_params['dim_latent'] = 1
+#
+#         # Prior
+#         if not ('prior_params' in self.fit_params.keys()):
+#             self.fit_params['prior_params'] = {}
+#
+#         # Prior Gaussian Process Covariance Kernel Type
+#         if not ('gp_kernel' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['gp_kernel'] = 'RBF'
+#
+#         # Prior Gaussian Process Covariance Scale
+#         if not ('fit_kernel_scale' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['fit_kernel_scale'] = False
+#
+#         # Prior Gaussian Process Covariance Scale
+#         if not ('fit_kernel_scale_prior' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['fit_kernel_scale_prior'] = False
+#
+#         # Prior Gaussian Process Covariance LengthScale
+#         if not ('fit_kernel_lengthscale' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['fit_kernel_lengthscale'] = True
+#
+#         if not ('fit_kernel_lengthscale_prior' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['fit_kernel_lengthscale_prior'] = True
+#
+#         # Prior Mean Parameter
+#         if not ('fit_prior_mean_param' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['fit_prior_mean_param'] = True
+#
+#         # Prior Scale
+#         if not ('scale' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['scale'] = 1.0
+#
+#         # Prior Scale
+#         if not ('scale_prior' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['scale_prior'] = 1.0
+#
+#         # Prior LengthScale
+#         if not ('lengthscale' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['lengthscale'] = 0.01
+#
+#         # Prior LengthScale
+#         if not ('lengthscale_prior' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['lengthscale_prior'] = 0.01
+#
+#         # Recognition Factors
+#         if not ('factors_params' in self.fit_params.keys()):
+#             self.fit_params['factors_params'] = {}
+#
+#         # Factors Channels
+#         if not ('channels' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['channels'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Factors 2D Convolutions
+#         if not ('kernel_conv' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['kernel_conv'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Factors 2D Pooling
+#         if not ('kernel_pool' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['kernel_pool'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Factors MLP Layers
+#         if not ('dim_hidden' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['dim_hidden'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Factors Activation function
+#         if not ('nonlinearity' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['nonlinearity'] = [
+#                 F.relu for _ in range(self.num_factors)
+#             ]
+#
+#         # Factors Covariance Constraint
+#         if not ('covariance' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['covariance'] = [
+#                 'fixed' for _ in range(self.num_factors)
+#             ]
+#
+#         # Recognition Auxiliary Factors
+#         if not ('auxiliary_params' in self.fit_params.keys()):
+#             self.fit_params['auxiliary_params'] = {}
+#
+#         # Auxiliary Factors Channels
+#         if not ('channels' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['channels'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Auxiliary Factors 2D Convolutions
+#         if not ('kernel_conv' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['kernel_conv'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Auxiliary Factors 2D Pooling
+#         if not ('kernel_pool' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['kernel_pool'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Auxiliary Factors MLP Layers
+#         if not ('dim_hidden' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['dim_hidden'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Auxiliary Factors Activation function
+#         if not ('nonlinearity' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['nonlinearity'] = [
+#                 F.relu for _ in range(self.num_factors)
+#             ]
+#
+#         # Auxiliary Factors Covariance Constraint
+#         if not ('covariance' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['covariance'] = [
+#                 'fixed' for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational
+#         if not ('variational_params' in self.fit_params.keys()):
+#             self.fit_params['variational_params'] = {}
+#
+#         if not ('inference_mode' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['inference_mode'] = 'amortized'
+#
+#         # Variational Channels
+#         if not ('channels' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['channels'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational 2D Convolutions
+#         if not ('kernel_conv' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['kernel_conv'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational 2D Pooling
+#         if not ('kernel_pool' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['kernel_pool'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational MLP Layers
+#         if not ('dim_hidden' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['dim_hidden'] = [
+#                 () for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational Merged MLP Layers
+#         if not ('dim_hidden_merged' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['dim_hidden_merged'] = ()
+#
+#         # Variational Factors Activation function
+#         if not ('nonlinearity' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['nonlinearity'] = [
+#                 F.relu for _ in range(self.num_factors)
+#             ]
+#
+#         # Variational Factors Activation function (post merge)
+#         if not ('nonlinearity_merged' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['nonlinearity_merged'] = F.relu
+#
+#         # Variational Factors Covariance Constraint
+#         if not ('covariance' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['covariance'] = 'fixed'
+#
+#         # Iterations
+#         if not ('num_epoch' in self.fit_params.keys()):
+#             self.fit_params['num_epoch'] = 500
+#
+#         # Logger
+#         if not ('pct' in self.fit_params.keys()):
+#             self.fit_params['pct'] = 0.01
+#
+#         # Ergodic assumption
+#         if not ('ergodic' in self.fit_params.keys()):
+#             self.fit_params['ergodic'] = False
+#
+#         # Default Optimizers
+#         if not ('optimizer' in self.fit_params['prior_params'].keys()):
+#             self.fit_params['prior_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
+#         if not ('optimizer' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-3}}
+#         if not ('optimizer' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
+#         if not ('optimizer' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['optimizer'] = {'name': 'Adam', 'param': {'lr': 1e-4}}
+#
+#         # Dropout
+#         if not ('dropout' in self.fit_params['factors_params'].keys()):
+#             self.fit_params['factors_params']['dropout'] = 0.0
+#         if not ('dropout' in self.fit_params['auxiliary_params'].keys()):
+#             self.fit_params['auxiliary_params']['dropout'] = 0.0
+#         if not ('dropout' in self.fit_params['variational_params'].keys()):
+#             self.fit_params['variational_params']['dropout'] = 0.0
