@@ -20,11 +20,11 @@ from utils import diagonalize
 # TODO: minibatch
 # TODO: do not forward auxiliary
 # TODO: doc RPM
-# TODO: Double check save load
-# TODO: If parametrized: q needs to be full covariance !!!!!
-# TODO: Fit he mean of the prior: Important !
-# TODO: Check Update marginals When
-# TODO: modify the variational to include the means !
+# TODO: Check Savings and loading
+# TODO: PLot marginals and see how do they compare with the mean
+# TODO: rotate to diagonalize covariances
+# Check Ergodic
+# Check Amortized
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):

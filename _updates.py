@@ -320,8 +320,6 @@ class Mixin:
         T x K
         """
 
-        # TODO: weird: the grad is not propagated ?
-        dim_latent = self.dim_latent
 
         prior_mean = self.prior.mean(
             self.observation_locations,
@@ -337,13 +335,3 @@ class Mixin:
         natural1_prior = - 2 * natural2_prior * prior_mean
 
         return natural1_prior.permute(1, 0), natural2_prior.permute(1, 0)
-
-
-        # # Deduce marginal natural parameters
-        # #natural2_prior = - 0.5 / (prior_marginal_covariance + 1e-6)
-        # #natural1_prior = - 2 * natural2_prior * prior_mean
-        #
-        # natural1_prior = torch.zeros(dim_latent, dtype=self.dtype, device=self.device)
-        # natural2_prior = - 0.5 * diagonalize(
-        #     1 / self.prior(self.inducing_locations[:1], self.inducing_locations[:1]).squeeze(dim=-1).squeeze(dim=-1)
-        #     )

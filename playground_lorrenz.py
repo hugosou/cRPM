@@ -247,10 +247,6 @@ rpm = RPM(
     fit_params=fit_params,
 )
 
-
-
-#%%
-
 rpm.fit(obs)
 
 #%%
@@ -271,90 +267,48 @@ rpm.fit(obs)
 
 #%%
 
+from utils_process import plot_rpgpfa_summary
 
-
-plot_summary(
+plot_rpgpfa_summary(
     rpm=rpm,
     plot_id_factors=[0],
-    plot_id_observations='all',
-    plot_variational=False,
+    plot_id_observations=[1],
+    plot_variational=True,
     plot_regressed=True,
-    plot_variance=False,
+    plot_variance=True,
     plot_true=True,
     latent_true=latent_true,
     regress_param=None,
-    plot_type='3D',
+    plot_type='linear',
+)
+
+
+#%%
+
+# plot_factors_prior(
+#     model,
+#     tt_index=0,
+#     factor_id=0,
+#     num_std=5,
+#     num_landscape=50
+# )
+
+from flexible_multivariate_normal import FlexibleMultivariateNormal
+from utils import diagonalize
+
+
+
+from utils_process import plot_rpgpfa_mixture
+
+plot_rpgpfa_mixture(
+    rpm,
+    plot_id_factor=0,
+    plot_id_index=0,
+    plot_locations=50,
+    plot_num_std=5,
 )
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#%%
-from matplotlib import pyplot as plt
-plt.figure()
-plt.plot(rpm.loss_tot[100:])
-plt.show()
-
-
-#%%
-
-
-variational_mean, variational_covariance = rpm.dist_marginals.mean_covariance()
-
-nn = 3
-plt.figure()
-for kk in range(rpm.dim_latent):
-    tt = np.linspace(0, 1, rpm.len_observation)
-    xx = variational_mean[nn, :, kk].detach().numpy()
-
-    ip = rpm.dist_variational.mean_covariance()[0][nn, kk].detach().numpy()
-    ii = rpm.inducing_locations.squeeze(dim=-1).detach().numpy()
-
-    plt.subplot(rpm.dim_latent, 1, kk + 1)
-    plt.plot(tt, xx)
-    plt.scatter(ii, ip)
-
-#%%
-
-
-plt.figure()
-for kk in range(rpm.dim_latent):
-    tt = np.linspace(0, 1, rpm.len_observation)
-    xx = latent_true[nn, :, kk]
-
-    plt.subplot(rpm.dim_latent, 1, kk + 1)
-    plt.plot(tt, xx)
-
-
-#%%
-
-ax = plt.figure().add_subplot(projection='3d')
-ax.plot(
-    variational_mean[nn, :, 0].detach().numpy(),
-    variational_mean[nn, :, 1].detach().numpy(),
-    variational_mean[nn, :, 2].detach().numpy(),
-    lw=0.5, color='k'
-)
-ax.set_xlabel("Z[1]")
-ax.set_ylabel("Z[2]")
-ax.set_zlabel("Z[3]")
-ax.set_title("True Latent: Lorenz Attractor")
-
-print(0)

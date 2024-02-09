@@ -26,7 +26,7 @@ def plot_loss(
     plt.tight_layout()
 
 
-def plot_summary(
+def plot_rpgpfa_summary(
     rpm: RPM,
     plot_id_factors: Union[str, List] = 'all',
     plot_id_observations: Union[str, List] = 'all',
@@ -123,16 +123,18 @@ def plot_summary(
                 up = xx + 2 * np.sqrt(yy)
                 lo = xx - 2 * np.sqrt(yy)
 
+                tt = np.linspace(0, 1, xx.shape[0])
+
                 # Plot MAP mean
-                plt.plot(xx, c='k', label='MAP')
+                plt.plot(tt, xx, c='k', label='MAP')
 
                 # Plot CI
                 if plot_variance:
-                    plt.fill_between(range(len(xx)), lo, up, color='k', alpha=.25)
+                    plt.fill_between(tt, lo, up, color='k', alpha=.25)
 
                 if latent_true is not None and plot_true:
                     zz = latent_true[plot_id_observations][..., dim].reshape(-1)
-                    plt.plot(zz, color='b', label='MAP')
+                    plt.plot(tt, zz, color='b', label='True')
 
                 if dim == 0:
                     plt.title(names[mm])
@@ -329,103 +331,121 @@ def regress_krr(X, Y, regress_param=None):
 
     return Yhat, Jhat, regressor, jacobian
 
-def plot_factors_prior(model, tt_index=0, factor_id=0, num_std=5, num_landscape=50):
-    """
-        Compare factor mixture and prior fitted from RPGPFA model
+def plot_rpgpfa_mixture(
+    rpm: RPM,
+    plot_id_factor: int = 0,
+    plot_id_index: int = 0,
+    plot_locations: int = 50,
+    plot_num_std: float = 5,
 
-        Args:
-            model (RPGPFA)
-            tt_index (int): time index
-    """
-    # Data Type / Device
-    dtype = model.dtype
-    device = model.device
-
-    # Problem Dimensions
-    len_observation = model.len_observation
-    num_observation = model.num_observation
-    num_factors = model.num_factors
-
-    # Mean Function fitted
-    mean_param, scale, lengthscale = model.prior_mean_param
-    prior_mean_kernel = RBFKernel(scale, lengthscale)
-    prior_mean = matmul(prior_mean_kernel(model.observation_locations, model.inducing_locations),
-                        mean_param.unsqueeze(-1)).squeeze(-1).detach().clone().numpy()
-
-    # Marginal Prior
-    natural1prior, natural2prior = model._get_prior_marginals()
-    covariance_prior = -0.5 / natural2prior
-    mean_prior = covariance_prior * natural1prior
-    prior = FlexibleMultivariateNormal(natural1prior.unsqueeze(-1), diagonalize(natural2prior.unsqueeze(-1)),
-                                       init_natural=True, init_cholesky=False)
-
-    # Z landscape
-    dim_latent = model.dim_latent
-
-    std_prior = torch.sqrt(covariance_prior)
-    ramp = torch.linspace(-1, 1, num_landscape, dtype=dtype, device=device).unsqueeze(-1).unsqueeze(-1)
-    z_lansdcape0 = mean_prior + ramp * num_std * std_prior
-    z_landscape_prior = z_lansdcape0.unsqueeze(-1)
-    prob_prior = torch.exp(prior.log_prob(z_landscape_prior)).permute(0, 2, 1).detach().numpy()
+):
 
     # Factors Marginal Distributions
-    factors_mean_marginal, factors_cova_marginal = model.factors.mean_covariance()
-    factors_mean_marginal = factors_mean_marginal.unsqueeze(-1)
-    factors_cova_marginal = factors_cova_marginal[..., range(dim_latent), range(dim_latent)].unsqueeze(-1).unsqueeze(-1)
-    factors_marginal = FlexibleMultivariateNormal(factors_mean_marginal, factors_cova_marginal,
-                                                  init_natural=False, init_cholesky=False)
+    fmean, fcova = [
+        xx[plot_id_factor].detach().cpu()
+        for xx in rpm.dist_factors.mean_covariance()
+    ]
 
-    # Factor and Mixture densities
-    z_lansdcape_factors = z_lansdcape0.permute(0, 2, 1).unsqueeze(1).unsqueeze(1).unsqueeze(-1)
-    prob_factors_all = torch.exp(factors_marginal.log_prob(z_lansdcape_factors)).detach()
-    prob_factors_mean = prob_factors_all.mean(dim=2)
-    prob_factors_all = prob_factors_all[:, factor_id]
-    prob_factors_mean = prob_factors_mean[:, factor_id]
+    # Mixture Mean
+    Fmean = fmean.mean(0)
 
-    # Plot All recognition Factors, Priors and Mixture
-    plt.figure(figsize=(4*prior_mean.shape[0], 4 * 2))
-    for dd in range(prior_mean.shape[0]):
-        plt.subplot(2, prior_mean.shape[0], dd +1)
-        for nn in range(num_observation):
-            # Current Factor mean
-            fc = factors_mean_marginal[factor_id, nn, :, dd, 0].detach().numpy()
-            plt.plot(fc, color=[0.5, 0.5, 0.5])
-        # Mixture Mean
-        mc = factors_mean_marginal.mean(1)[factor_id, :, dd, 0].detach().numpy()
-        plt.plot(mc, color='k', label='Mixture Marginal Mean')
-        # Prior Mean
-        plt.plot(prior_mean[dd], color='m', label='Prior Marginal Mean')
-        # Time of interest
-        plt.scatter(tt_index, mc[tt_index], c='m', s=600)
+    # Prior Mean
+    pmean = rpm.prior.mean(
+        rpm.observation_locations,
+        rpm.inducing_locations
+    ).detach().cpu().permute(1, 0)
 
-        plt.title('Dim#' + str(dd) )
+    # Prior Covariance
+    pcova = rpm.prior.covariance(
+        rpm.observation_locations,
+        rpm.observation_locations
+    ).detach().cpu().diagonal(dim1=-1, dim2=-2).permute(1, 0)
+
+    # Marginal Prior
+    prior = FlexibleMultivariateNormal(
+        pmean.unsqueeze(-1),
+        pcova.unsqueeze(-1).unsqueeze(-1),
+        init_natural=False,
+        init_cholesky=True,
+    )
+
+    # Marginal Factors
+    factors = FlexibleMultivariateNormal(
+        fmean.unsqueeze(-1),
+        fcova.diagonal(dim1=-1, dim2=-2).unsqueeze(-1).unsqueeze(-1),
+        init_natural=False,
+        init_cholesky=True,
+    )
+
+    # Z landscape
+    dim_latent = rpm.dim_latent
+    num_observations = rpm.num_observation
+    len_observations = rpm.len_observation
+    tt = np.linspace(0, 1, len_observations)
+    std_prior = torch.sqrt(pcova)[0]
+    zz = torch.linspace(
+        start=-1,
+        end=1,
+        steps=plot_locations,
+    ).unsqueeze(-1)
+    zz = zz * std_prior.unsqueeze(0) * plot_num_std + pmean[plot_id_index].unsqueeze(0)
+
+    # Estimate Log Probabilities
+    with torch.no_grad():
+
+        # Factors
+        fprob = torch.exp(
+            factors.log_prob(
+                zz.reshape(plot_locations, 1, 1, dim_latent, 1)
+            )
+        )
+
+        # Priors
+        pprob = torch.exp(
+            prior.log_prob(
+                zz.reshape(plot_locations, 1, dim_latent, 1)
+            )
+        )
+
+    # Estimate at plot_id_index
+    fprobt = fprob[:, :, plot_id_index]
+    Fprobt = fprobt.mean(dim=1)
+    pprobt = pprob[:, plot_id_index]
+
+    plt.figure()
+    for kk in range(dim_latent):
+
+        # Plot Mean Time Series
+        plt.subplot(2, dim_latent, kk + 1)
+        for nn in range(num_observations):
+            xx = fmean[nn, :, kk]
+            plt.plot(tt, xx, c=[0.5, 0.5, 0.5])
+        xx = Fmean[:, kk]
+        yy = pmean[:, kk]
+
+        plt.plot(tt, yy, c=[1.0, 0.0, 1.0], label='Prior')
+        plt.plot(tt, xx, c=[0.0, 0.0, 0.0], label='Mixture')
+        plt.title('Dim #' + str(kk))
         plt.xlabel('Time [a.u]')
-        if dd == 0:
-            plt.ylabel('E(Z)')
 
-    # Plot Marginal Distributions
-    for dd in range(prior_mean.shape[0]):
-        plt.subplot(2, prior_mean.shape[0], dd + 1 + prior_mean.shape[0])
-        zz = z_lansdcape0[:, dd, tt_index].detach().numpy()
-        for nn in range(num_observation):
-            # Factors
-            pc = prob_factors_all[:, nn, tt_index, dd].detach().numpy()
-            plt.plot(zz, pc, c=[0.5, 0.5, 0.5])
-        # Mixture
-        fc = prob_factors_mean[:, tt_index, dd].detach().numpy()
-        plt.plot(zz, fc, c='k', label='Mixture Marginal PdF', linewidth=2)
-        # Prior
-        plt.plot(zz, prob_prior[:, tt_index, dd], linestyle='-.', color='m', label='Prior', linewidth=2)
+        plt.scatter(tt[plot_id_index], yy[plot_id_index], s=200, c= [1.0, 0.0, 1.0], label='Prior Ref.')
 
+        if kk == 0:
+            plt.legend()
 
-        plt.tight_layout()
-        plt.xlabel('Z[' + str(dd) + ']')
-        if dd==0:
-            plt.ylabel('p(z[t=' + str(tt_index) + '])')
-
+        # Plot Distribution at plot_id_index
+        plt.subplot(2, dim_latent, kk + 1 + dim_latent)
+        for nn in range(num_observations):
+            xx = fprobt[:, nn, kk]
+            plt.plot(zz[:, kk], xx, c=[0.5, 0.5, 0.5])
+        pp = pprobt[:, kk]
+        FF = Fprobt[:, kk]
+        plt.plot(zz[:, kk], pp, c=[1.0, 0.0, 1.0], label= 'Mixture')
+        plt.plot(zz[:, kk], FF, c=[0.0, 0.0, 0.0], label= 'Prior')
+        plt.xlabel('Z' + str(kk))
 
     plt.tight_layout()
-    plt.legend()
+
 
 
 def plot_gradient_line(xx, cc, **kwargs):
