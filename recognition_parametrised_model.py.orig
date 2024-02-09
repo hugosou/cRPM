@@ -1,6 +1,5 @@
 import torch
 from torch import matmul
-
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
     kl,
@@ -19,49 +18,25 @@ import _updates
 from utils import diagonalize
 
 # TODO: minibatch
-# TODO: scheduler
 # TODO: do not forward auxiliary
-# TODO: Check Savings and loading
-# TODO: rotate to diagonalize covariances
-# TODO: Check Amortized
+# TODO: doc RPM
+# TODO: If parametrized: q needs to be full covariance !!!!!
+# TODO: Fit he mean of the prior: Important !
+# TODO: Check Update marginals When
+# TODO: modify the variational to include the means !
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):
     """
-    Recognition Parametrised Model (RPM)
+    Recognition Parametrised Model
 
-    Summary:
-        Flexible Class for Recognition Parametrised Factor Analysis (RPFA).
-        and Recognition Parametrised Gaussian Process Factor Analysis (RPGPFA).
 
-    Args:
-        - observations (torch.Tensor or List[torch.Tensor]): Multimodal (possibly time series) observations.
-            Sizes:
-                len(observations) = num_factors
-                observations[j] ~ num_observations x len_observations x *dim_j
-            Where:
-                num_factors: number of conditionally independent factors
-                num_observations: number of observation samples
-                len_observations: length of the time series
-                dim_j: dimension of j=th observations
-        - observation_locations (torch.Tensor): Locations (e.g. time) at which observations are recorded
-            Sizes:
-                len_observations x dim_observation_locations
-        - inducing_locations (torch.Tensor): Locations (e.g. time) at of inducing points
-        - loss_tot (List[float]): Stored Loss defined as - Free Energy
-        - fit_params (Dict): Fit Parameters. See _initializations.py for Details
-        - prior (GPPrior): Latent Prior Distribution
-        - recognition_factors ()
-        - recognition_factors (recognition.Encoder)
-        - recognition_auxiliary (recognition.Encoder)
-        - recognition_variational (recognition.Encoder)
 
     notation: for compactness, we sometimes denote:
         N: num_observations
         T: len_observations
         K: dim_latent
         M: num_inducing_points (<= T)
-
 
     """
 
@@ -127,7 +102,11 @@ class RPM(_initializations.Mixin, _updates.Mixin):
 
         with torch.no_grad():
             self._update_all(observations)
+<<<<<<< HEAD
+            #self.loss_tot.append(self._get_loss().item())
+=======
             self.loss_tot.append(self._get_loss().item())
+>>>>>>> 6e039963484e918891293cf09a8b6f917fe037b3
 
     def _update_all(self, observations):
         self._update_factors(observations)
@@ -210,14 +189,14 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         log_gamma = self.log_gamma.sum()
 
         # KL[Variational || Prior] ~ N x K or N x 1 -> sum to scalar
-        KLprior = self._kl_prior().sum()
+        KLprior = self._kl_prior()
 
         # KL[Variational || fhat] ~ J x N x T -> sum to scalar
         KLmarginals = self._kl_marginals().sum()
 
         # - Loss
         normalizer = self.num_observation * self.len_observation
-        free_energy = (log_gamma - KLmarginals - KLprior) / normalizer
+        free_energy = (log_gamma - KLmarginals - KLprior.sum()) / normalizer
 
         return - free_energy
 
@@ -279,6 +258,8 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                     KL div      size: N x K
         """
 
+        # TODO: I haven't tripple proof read those KL..
+
         # Amortized or Parametrized variational inference
         inference_mode = self.fit_params['variational_params']['inference_mode']
 
@@ -305,6 +286,8 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                 # Prior's Natural Parameters (reshape only works since M = 1)
                 prior_mean = prior_mean.reshape(1, 1, self.dim_latent)
                 prior_vard = prior_vari.reshape(1, 1, self.dim_latent)
+                 # TODO Check this when M = 1
+                #prior_nat1 = prior_nat1.reshape(1, 1, self.dim_latent)
                 prior_nat1 = prior_mean / prior_vard
                 prior_nat2 = - 0.5 * diagonalize(1 / (prior_vard + 1e-6))
                 prior_natural = (prior_nat1, prior_nat2)
