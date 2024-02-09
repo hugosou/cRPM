@@ -1,6 +1,5 @@
 import torch
 from torch import matmul
-from torch.utils._sympy.functions import Where
 
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
@@ -25,6 +24,8 @@ from utils import diagonalize
 # TODO: Check Savings and loading
 # TODO: rotate to diagonalize covariances
 # TODO: Check Amortized
+# TODO: process the textured data
+# TODO: important to CHECK ! The auxiliary is consant across across N -> Does not make any sense to me !
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):

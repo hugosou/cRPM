@@ -243,7 +243,7 @@ class Mixin:
                 channels=channels[obsi],
                 dim_hidden=dim_hidden[obsi],
                 non_linearity=non_linearity[obsi],
-                zero_init=True,
+                zero_init=False, # TODO INIT TO ZERO MAYBE ?
                 dropout=dropout,
             ).to(self.device.index)
             recognition_auxiliary.append(neti)
