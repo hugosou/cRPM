@@ -15,9 +15,25 @@ import torch.nn.functional as F
 from utils_generate_toydatasets import generate_lorenz
 from mpl_toolkits.mplot3d import Axes3D
 
+# %%
+
+aa = torch.nn.Parameter(torch.rand(10))
+
+optimizer0 = torch.optim.Adam(params=[aa])
+
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer0, T_max=300)
+scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer0, factor=1.0, total_iters=1)
+
+scheduler_closure = lambda opt: torch.optim.lr_scheduler.ConstantLR(
+    opt, factor=1.0, total_iters=1
+)
 
 
-#%%
+
+
+
+# %%
+
 # Reproducibility
 np.random.seed(10)
 torch.manual_seed(10)
@@ -35,15 +51,17 @@ num_inducing_points = 25
 dim_latent_true = 3
 
 # Generate Lorenz Dynamics
-dtt_simulation = 0.001   # a.u
+dtt_simulation = 0.001  # a.u
 len_simulation = 3e3
 num_simulation = num_observations
 dim_simulation = 3
-init_simulation = np.array([2.3274,  3.8649, 18.2295])
+init_simulation = np.array([2.3274, 3.8649, 18.2295])
 vari_simulation = 0.1
 
 # Normalize Lorenz Dynamics to [-1, 1]
-lorenz_raw = torch.tensor(generate_lorenz(num_simulation, int(len_simulation) -1, dtt_simulation, init_simulation, vari_simulation), dtype=dtype)
+lorenz_raw = torch.tensor(
+    generate_lorenz(num_simulation, int(len_simulation) - 1, dtt_simulation, init_simulation, vari_simulation),
+    dtype=dtype)
 lorenz_nor = lorenz_raw.reshape(lorenz_raw.shape[0] * lorenz_raw.shape[1], dim_simulation)
 lorenz_nor -= lorenz_nor.min(dim=0, keepdim=True)[0]
 lorenz_nor /= lorenz_nor.max(dim=0, keepdim=True)[0]
@@ -51,16 +69,16 @@ lorenz_nor = 2 * lorenz_nor - 1
 
 # Reshape Dynamics
 lorenz_nor = lorenz_nor.reshape(num_simulation, int(len_simulation), dim_simulation)
-time_idx = np.linspace(0, len_simulation-1, len_observations).round().astype(int)
+time_idx = np.linspace(0, len_simulation - 1, len_observations).round().astype(int)
 lorenz_nor = lorenz_nor[:, time_idx]
 
 # Add Gaussian Noise To each trajectories
 noise_kernel = RBFKernel(0.1 * torch.ones(dim_simulation), 0.1 * torch.ones(dim_simulation))
-KK = noise_kernel(torch.linspace(0, 1, len_observations).unsqueeze(-1), torch.linspace(0, 1, len_observations).unsqueeze(-1))
-LL = torch.linalg.cholesky(KK + 1e-6 * torch.eye(len_observations).unsqueeze(0) )
+KK = noise_kernel(torch.linspace(0, 1, len_observations).unsqueeze(-1),
+                  torch.linspace(0, 1, len_observations).unsqueeze(-1))
+LL = torch.linalg.cholesky(KK + 1e-6 * torch.eye(len_observations).unsqueeze(0))
 noise = matmul(LL, torch.randn(dim_simulation, len_observations, num_observations)).permute(2, 1, 0).detach()
 lorenz_nor = lorenz_nor + noise
-
 
 # Unfold dynamics for ploting
 lorenz_nor = lorenz_nor.reshape(num_simulation * len_observations, dim_simulation)
@@ -93,8 +111,7 @@ else:
     plt.ylabel('Z[1]')
     plt.xlabel('Time [a.u]')
 
-
-#%%
+# %%
 
 
 # Map to observations
@@ -106,13 +123,12 @@ rates_unfoled = matmul(lorenz_nor, C)
 rates = rates_unfoled.reshape(num_observations, len_observations, dim_observations)
 
 # Observations
-#observations = rates + 0.3 * torch.randn(rates.shape)
-observations = torch.poisson(10*torch.exp(rates - rates.min()))
+# observations = rates + 0.3 * torch.randn(rates.shape)
+observations = torch.poisson(10 * torch.exp(rates - rates.min()))
 observations_unfoled = observations.reshape(num_observations * len_observations, dim_observations)
 
-
 # Plot Observation Summary
-plt.figure(figsize=(3*4, 4))
+plt.figure(figsize=(3 * 4, 4))
 plot_n = 2
 plot_num = 10
 plot_id = np.random.choice(dim_observations, plot_num)
@@ -152,7 +168,7 @@ plt.plot(latent_true[plot_n].numpy())
 plt.tight_layout()
 plt.title('Latent#' + str(plot_n))
 
-#%%
+# %%
 
 
 # Normalise observations.
@@ -169,7 +185,7 @@ inducing_locations = torch.linspace(0, 1, num_inducing_points, dtype=dtype, devi
 # Break Into Multiple Factors
 num_factors = 3
 num_full = (np.floor(dim_observations / num_factors)).astype(int)
-obs = tuple([observations[..., num_full*i:num_full*(i+1)] for i in range(num_factors)])
+obs = tuple([observations[..., num_full * i:num_full * (i + 1)] for i in range(num_factors)])
 
 # Linear / Non Linear Network
 linear_networks = True
@@ -181,19 +197,18 @@ dim_hidden = tuple([dim_hidden0 for _ in range(num_factors)])
 neural_net = tuple(['perceptron' for _ in range(num_factors)])
 nonlinearity = tuple([non_lineraity0 for _ in range(num_factors)])
 
-#%%
+# %%
 
 from recognition_parametrised_model import RPM
 import torch.nn.functional as F
 
 observation_locations = torch.linspace(0, 1, len_observations).unsqueeze(-1)
 inducing_locations = observation_locations[
-    torch.floor(torch.linspace(0, len_observations-1, 50)).numpy().astype(int)
+    torch.floor(torch.linspace(0, len_observations - 1, 50)).numpy().astype(int)
 ]
 
 prior_params = {
     'gp_kernel': 'RBF',
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
     'scale': 1,
     'lengthscale': 0.01,
     'fit_kernel_scale': False,
@@ -201,6 +216,8 @@ prior_params = {
     'fit_kernel_lengthscale': True,
     'fit_kernel_lengthscale_prior': False,
     'fit_prior_mean_param': False,
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-4),
+    'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=1),
 }
 
 factors_params = {
@@ -210,7 +227,8 @@ factors_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-4),
+    'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=0.5, verbose=Falseß),
 }
 
 auxiliary_params = {
@@ -220,7 +238,8 @@ auxiliary_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-5),
+    'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=0.8),
 }
 
 variational_params = {
@@ -233,7 +252,7 @@ variational_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'full',
-    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-6),
 }
 
 fit_params = {
@@ -255,13 +274,12 @@ rpm = RPM(
 
 rpm.fit(obs)
 
-#%%
+# %%
 from utils_process import plot_rpgpfa_summary, plot_loss, plot_rpgpfa_mixture
 
 plot_loss(rpm)
 
-#%%
-
+# %%
 
 
 plot_rpgpfa_summary(
@@ -277,9 +295,7 @@ plot_rpgpfa_summary(
     plot_type='linear',
 )
 
-
-
-#%%
+# %%
 
 plot_rpgpfa_mixture(
     rpm,
@@ -289,9 +305,7 @@ plot_rpgpfa_mixture(
     plot_num_std=5,
 )
 
-
-#%%
-
+# %%
 
 
 # from save_load import rpm_load, rpm_save
@@ -299,12 +313,10 @@ plot_rpgpfa_mixture(
 # rpm_loaded = rpm_load('./tmp.pickle', observations=observations)
 
 
-#%%
+# %%
 
 
-
-
-#%%
+# %%
 
 # plot_factors_prior(
 #     model,
@@ -317,23 +329,12 @@ plot_rpgpfa_mixture(
 from flexible_multivariate_normal import FlexibleMultivariateNormal
 from utils import diagonalize
 
-
-
 from utils_process import plot_rpgpfa_mixture
 
-
-
-
-#%%
+# %%
 
 
 from typing import Any
 
-
-
 aa = {}
-_default_field(aa, key='dd', default= 0)
-
-
-
-
+_default_field(aa, key='dd', default=0)

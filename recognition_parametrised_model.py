@@ -8,7 +8,7 @@ from flexible_multivariate_normal import (
     get_log_normalizer)
 
 from typing import Union, List, Dict
-from utils import optimizer_wrapper, print_loss
+from utils import print_loss
 
 from prior import GPPrior
 import recognition
@@ -174,8 +174,13 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         ]
 
         all_optimizers = [
-            optimizer_wrapper(pp[0], pp[1]['optimizer']) for pp in all_params
+            opt['optimizer'](param) for param, opt in all_params
         ]
+
+        all_scheduler = [
+            params[1]['scheduler'](opt) for params, opt in zip(all_params, all_optimizers)
+        ]
+
 
         # Fit
         for epoch in range(num_epoch):
@@ -197,6 +202,10 @@ class RPM(_initializations.Mixin, _updates.Mixin):
             # Gradient Steps
             for opt in all_optimizers:
                 opt.step()
+
+            # Scheduler Steps (outside of minibatch)
+            for sched in all_scheduler:
+                sched.step()
 
             # Logger
             print_loss(
