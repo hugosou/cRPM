@@ -29,7 +29,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Dimension of the problem
 dim_observations = 100
-num_observations = 1
+num_observations = 10
 len_observations = 100
 num_inducing_points = 25
 dim_latent_true = 3
@@ -193,7 +193,7 @@ inducing_locations = observation_locations[
 
 prior_params = {
     'gp_kernel': 'RBF',
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
     'scale': 1,
     'lengthscale': 0.01,
     'fit_kernel_scale': False,
@@ -210,7 +210,7 @@ factors_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
 }
 
 auxiliary_params = {
@@ -220,7 +220,7 @@ auxiliary_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 0e-3}},
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
 }
 
 variational_params = {
@@ -233,7 +233,7 @@ variational_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'non_linearity_merged': F.relu,
     'covariance': 'full',
-    'optimizer': {'name': 'RMSprop', 'param': {'lr': 1e-4}},
+    'optimizer': {'name': 'Adam', 'param': {'lr': 1e-4}},
 }
 
 fit_params = {
@@ -269,13 +269,14 @@ plot_rpgpfa_summary(
     plot_id_factors=[0],
     plot_id_observations=[0],
     plot_variational=True,
-    plot_regressed=False,
-    plot_variance=True,
+    plot_regressed=True,
+    plot_variance=False,
     plot_true=True,
     latent_true=latent_true,
     regress_param=None,
     plot_type='linear',
 )
+
 
 
 #%%
