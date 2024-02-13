@@ -64,7 +64,7 @@ class Mixin:
         dim_latent = self.dim_latent
         num_factors = self.num_factors
         len_observation = self.len_observation
-        num_observation = self.num_observation
+        num_observation = self.num_observation_batch  # num_observation = self.num_observation
 
         # Prior parameters
         natural1_prior, natural2_prior = self._evaluate_prior_marginal()
@@ -187,20 +187,7 @@ class Mixin:
             ).permute(0, 2, 1)
 
             # Square Root and Diagonalize the marginal Covariance ~ N x T x K x K (Alternatively, use 1D MVN)
-            marginal_covariance_chol = diagonalize(torch.sqrt(marginal_covariance_diag))
-
-            # # Marginals' size: N x T x K (x K)
-            # self.dist_marginals = FlexibleMultivariateNormal(
-            #     marginal_mean,
-            #     marginal_covariance_chol,
-            #     init_natural=False,
-            #     init_cholesky=True,
-            #     store_suff_stat_mean=True,
-            #     store_natural_chol=False,
-            # )
-
-            # TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO TODO
-            #  THERE MIGHT BE PLACES WHERE I TAKE THE THE INVERSE OF THE CHOL !!! BAD !
+            # marginal_covariance_chol = diagonalize(torch.sqrt(marginal_covariance_diag))
 
             # Use Natural parametrization
             marginal_natural2 = -0.5 * 1 / marginal_covariance_diag
@@ -239,9 +226,19 @@ class Mixin:
         else:
             raise NotImplementedError()
 
+        # Batching depends on inference mode
+        if inference_mode == 'parametrized':
+            batch = self.batches[self.epoch][self.batch]
+        elif inference_mode == 'amortized':
+            batch = range(self.num_observation_batch)
+        else:
+            raise NotImplementedError()
+
         # Extract parameters
-        natural1 = recq[..., :dim_output]
-        natural2_chol = vector_to_tril(recq[..., dim_output:])
+        natural1 = recq[batch, ..., :dim_output]
+        natural2_chol = vector_to_tril(recq[batch, ..., dim_output:])
+
+
 
         # Build Distributions
         self.dist_variational = FlexibleMultivariateNormal(
@@ -261,7 +258,7 @@ class Mixin:
         dim_latent = self.dim_latent
         num_factors = self.num_factors
         len_observation = self.len_observation
-        num_observation = self.num_observation
+        num_observation = self.num_observation_batch  # num_observation = self.num_observation
 
         # Init Natural Parameters ~ J x N x K (x K)
         natural1 = torch.zeros(

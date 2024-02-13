@@ -15,6 +15,7 @@ def _default_field(param: dict, key: str, default):
     if key not in param:
         param[key] = default
 
+
 def _repeat_list(val, num):
     return [val for _ in range(num)]
 
@@ -43,6 +44,9 @@ class Mixin:
 
         # Iterations
         _default_field(self.fit_params, key='num_epoch', default=500)
+
+        # Batch size (default to full batch)
+        _default_field(self.fit_params, key='batch_size', default=self.num_observation)
 
         # Logger
         _default_field(self.fit_params, key='pct', default=0.01)
