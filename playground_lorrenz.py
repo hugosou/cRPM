@@ -228,7 +228,7 @@ factors_params = {
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
     'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-4),
-    'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=0.5, verbose=Falseß),
+    'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=0.5, verbose=False),
 }
 
 auxiliary_params = {
@@ -257,7 +257,8 @@ variational_params = {
 
 fit_params = {
     'num_epoch': 10000,
-    'dim_latent': 3,
+    'batch_size': 4,
+    'dim_latent': 2,
     'prior_params': prior_params,
     'factors_params': factors_params,
     'auxiliary_params': auxiliary_params,
@@ -308,33 +309,6 @@ plot_rpgpfa_mixture(
 # %%
 
 
-# from save_load import rpm_load, rpm_save
-# rpm_save(rpm, './tmp.pickle')
-# rpm_loaded = rpm_load('./tmp.pickle', observations=observations)
 
-
-# %%
-
-
-# %%
-
-# plot_factors_prior(
-#     model,
-#     tt_index=0,
-#     factor_id=0,
-#     num_std=5,
-#     num_landscape=50
-# )
-
-from flexible_multivariate_normal import FlexibleMultivariateNormal
-from utils import diagonalize
-
-from utils_process import plot_rpgpfa_mixture
-
-# %%
-
-
-from typing import Any
-
-aa = {}
-_default_field(aa, key='dd', default=0)
+from utils import get_minibatches
+mini_batches = get_minibatches(2000, 1000, 10)

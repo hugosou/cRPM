@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from matplotlib import pyplot as plt
 
+
 def get_minibatches(num_epoch, len_full, len_minibatch):
     """ Returns mini-batch indices """
 
@@ -60,33 +61,6 @@ def plot_confusion(matrix, label = None, overlay_text = True, normalize= True,  
                 text_x = x + jump_x
                 text_y = y + jump_y
                 plt.text(text_x, text_y, label, color='black', ha='center', va='center')
-
-
-def optimizer_wrapper(param, optimizer_param):
-
-    optimizer_name = optimizer_param['name']
-    optimizer_param = optimizer_param['param']
-
-    if optimizer_name == 'Adam':
-        return torch.optim.Adam(param, **optimizer_param)
-
-    elif optimizer_name == 'SGD':
-        return torch.optim.SGD(param, **optimizer_param)
-
-    elif optimizer_name == 'Adamax':
-        return torch.optim.Adamax(param, **optimizer_param)
-
-    elif optimizer_name == 'LBFGS':
-        return torch.optim.LBFGS(param, **optimizer_param)
-
-    elif optimizer_name == 'RMSprop':
-        return torch.optim.RMSprop(param, **optimizer_param)
-
-    elif optimizer_name == 'AdamW':
-        return torch.optim.AdamW(param, **optimizer_param)
-
-    else:
-        raise NotImplementedError()
 
 
 def print_loss(loss, epoch_id, epoch_num, pct=0.001):

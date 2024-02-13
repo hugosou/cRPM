@@ -1,6 +1,8 @@
 import torch
 from torch import matmul
 
+import numpy as np
+
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
     kl,
@@ -8,7 +10,7 @@ from flexible_multivariate_normal import (
     get_log_normalizer)
 
 from typing import Union, List, Dict
-from utils import print_loss
+from utils import print_loss, get_minibatches
 
 from prior import GPPrior
 import recognition
@@ -18,12 +20,11 @@ import _updates
 
 from utils import diagonalize
 
-# TODO: minibatch
-# TODO: scheduler
+
 # TODO: do not forward auxiliary
 # TODO: Check Savings and loading
 # TODO: rotate to diagonalize covariances
-# TODO: Check Amortized
+# TODO: Check Amortized RPGPFA
 # TODO: process the textured data
 # TODO: important to CHECK ! The auxiliary is consant across across N -> Does not make any sense to me !
 
@@ -128,10 +129,14 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         self.log_gamma = None
 
         with torch.no_grad():
-            self._update_all(observations)
+            batch = self.batches[0][0]
+            batched_observations = [obsi[batch] for obsi in observations] \
+                if len(batch) < self.num_observation else observations
+            self._update_all(batched_observations)
             self.loss_tot.append(self._get_loss().item())
 
     def _update_all(self, observations):
+
         self._update_factors(observations)
         self._update_variational(observations)
         self._update_marginals()
@@ -181,31 +186,46 @@ class RPM(_initializations.Mixin, _updates.Mixin):
             params[1]['scheduler'](opt) for params, opt in zip(all_params, all_optimizers)
         ]
 
-
         # Fit
         for epoch in range(num_epoch):
 
-            # Forward pass
-            self._update_all(observations)
+            self.epoch = epoch
+            batches = self.batches[epoch]
 
-            # Loss
-            loss = self._get_loss()
-            self.loss_tot.append(loss.item())
+            # Current epoch losses
+            loss_batch = []
 
-            # Reset Optimizers
-            for opt in all_optimizers:
-                opt.zero_grad()
+            for batch_id, batch in enumerate(batches):
 
-            # Gradients
-            loss.backward()
+                self.batch = batch_id
+                self.num_observation_batch = len(batch)
+                batched_observations = [obsi[batch] for obsi in observations] \
+                    if len(batch) < self.num_observation else observations
 
-            # Gradient Steps
-            for opt in all_optimizers:
-                opt.step()
+                # Forward pass
+                self._update_all(batched_observations)
 
-            # Scheduler Steps (outside of minibatch)
+                # Loss
+                loss = self._get_loss()
+                loss_batch.append(loss.item())
+
+                # Reset Optimizers
+                for opt in all_optimizers:
+                    opt.zero_grad()
+
+                # Gradients
+                loss.backward()
+
+                # Gradient Steps
+                for opt in all_optimizers:
+                    opt.step()
+
+            # Scheduler Steps
             for sched in all_scheduler:
                 sched.step()
+
+            # Gather loss
+            self.loss_tot.append(np.mean(loss_batch))
 
             # Logger
             print_loss(
@@ -227,7 +247,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         KLmarginals = self._kl_marginals().sum()
 
         # - Loss
-        normalizer = self.num_observation * self.len_observation
+        normalizer = self.num_observation_batch * self.len_observation
         free_energy = (log_gamma - KLmarginals - KLprior) / normalizer
 
         return - free_energy
@@ -235,7 +255,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
     def _kl_marginals(self):
 
         # Dimension of the problem
-        num_observation = self.num_observation
+        num_observation = self.num_observation_batch  # num_observation = self.num_observation
 
         # Natural Parameter from the marginal ~ 1 x N x T x K (x K)
         variational = self.dist_marginals
@@ -387,6 +407,14 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         # Fit parameters
         self._init_fit_params()
         self.dim_latent = self.fit_params['dim_latent']
+        self.batches = get_minibatches(
+            self.fit_params['num_epoch'],
+            self.num_observation,
+            self.fit_params['batch_size'],
+        )
+        self.epoch = 0
+        self.batch = 0
+        self.num_observation_batch = len(self.batches[self.epoch][self.batch])
 
         self._init_prior()
         self._init_factors(observations)
