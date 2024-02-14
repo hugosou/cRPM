@@ -140,6 +140,8 @@ def plot_rpgpfa_summary(
                     plt.title(names[mm])
                     if mm ==0:
                         plt.legend()
+                if mm == 0:
+                    plt.ylabel('Z [' + str(dim + 1) + ']')
 
     elif plot_type == '3D':
         assert dims == 3, 'Error: 3D plot only supported when latent is 3D'
@@ -182,8 +184,168 @@ def plot_rpgpfa_summary(
                 ax.set_zlabel("Z[3]")
                 ax.set_title("True Latent")
 
+    elif plot_type == '2D':
+        assert dims == 2, 'Error: 2D plot only supported when latent is 2D'
+
+        # 2D Plot
+        for mm in range(len(means)):
+
+            plt.figure()
+
+            for nn in range(means[mm].shape[0]):
+                # E[Z]
+                xx = means[mm][nn].numpy()
+
+                plt.plot(
+                    xx[:, 0],
+                    xx[:, 1],
+                    lw=0.5,
+                    color='k',
+                    label='Fit',
+                )
+                plt.scatter(
+                    xx[0, 0],
+                    xx[0, 1],
+                    label='start'
+                )
+
+                if latent_true is not None and plot_true:
+                    zz = latent_true[plot_id_observations][nn]
+
+                    plt.plot(
+                        zz[:, 0],
+                        zz[:, 1],
+                        lw=0.5,
+                        color='b',
+                        label='True',
+                    )
+
+                plt.legend()
+                plt.xlabel("Z[1]")
+                plt.ylabel("Z[2]")
+                plt.title(names[mm])
+
+
+
+
     else:
         raise NotImplementedError()
+
+
+def plot_rpgpfa_mixture(
+    rpm: RPM,
+    plot_id_factor: int = 0,
+    plot_id_index: int = 0,
+    plot_locations: int = 50,
+    plot_num_std: float = 5,
+
+):
+
+    # Factors Marginal Distributions
+    fmean, fcova = [
+        xx[plot_id_factor].detach().cpu()
+        for xx in rpm.dist_factors.mean_covariance()
+    ]
+
+    # Mixture Mean
+    Fmean = fmean.mean(0)
+
+    # Prior Mean
+    pmean = rpm.prior.mean(
+        rpm.observation_locations,
+        rpm.inducing_locations
+    ).detach().cpu().permute(1, 0)
+
+    # Prior Covariance
+    pcova = rpm.prior.covariance(
+        rpm.observation_locations,
+        rpm.observation_locations
+    ).detach().cpu().diagonal(dim1=-1, dim2=-2).permute(1, 0)
+
+    # Marginal Prior
+    prior = FlexibleMultivariateNormal(
+        pmean.unsqueeze(-1),
+        pcova.unsqueeze(-1).unsqueeze(-1),
+        init_natural=False,
+        init_cholesky=True,
+    )
+
+    # Marginal Factors
+    factors = FlexibleMultivariateNormal(
+        fmean.unsqueeze(-1),
+        fcova.diagonal(dim1=-1, dim2=-2).unsqueeze(-1).unsqueeze(-1),
+        init_natural=False,
+        init_cholesky=True,
+    )
+
+    # Z landscape
+    dim_latent = rpm.dim_latent
+    num_observations = rpm.num_observation
+    len_observations = rpm.len_observation
+    tt = np.linspace(0, 1, len_observations)
+    std_prior = torch.sqrt(pcova)[0]
+    zz = torch.linspace(
+        start=-1,
+        end=1,
+        steps=plot_locations,
+    ).unsqueeze(-1)
+    zz = zz * std_prior.unsqueeze(0) * plot_num_std + pmean[plot_id_index].unsqueeze(0)
+
+    # Estimate Log Probabilities
+    with torch.no_grad():
+
+        # Factors
+        fprob = torch.exp(
+            factors.log_prob(
+                zz.reshape(plot_locations, 1, 1, dim_latent, 1)
+            )
+        )
+
+        # Priors
+        pprob = torch.exp(
+            prior.log_prob(
+                zz.reshape(plot_locations, 1, dim_latent, 1)
+            )
+        )
+
+    # Estimate at plot_id_index
+    fprobt = fprob[:, :, plot_id_index]
+    Fprobt = fprobt.mean(dim=1)
+    pprobt = pprob[:, plot_id_index]
+
+    plt.figure()
+    for kk in range(dim_latent):
+
+        # Plot Mean Time Series
+        plt.subplot(2, dim_latent, kk + 1)
+        for nn in range(num_observations):
+            xx = fmean[nn, :, kk]
+            plt.plot(tt, xx, c=[0.5, 0.5, 0.5])
+        xx = Fmean[:, kk]
+        yy = pmean[:, kk]
+
+        plt.plot(tt, yy, c=[1.0, 0.0, 1.0], label='Prior')
+        plt.plot(tt, xx, c=[0.0, 0.0, 0.0], label='Mixture')
+        plt.title('Dim #' + str(kk))
+        plt.xlabel('Time [a.u]')
+
+        plt.scatter(tt[plot_id_index], yy[plot_id_index], s=200, c= [1.0, 0.0, 1.0], label='Prior Ref.')
+
+        if kk == 0:
+            plt.legend()
+
+        # Plot Distribution at plot_id_index
+        plt.subplot(2, dim_latent, kk + 1 + dim_latent)
+        for nn in range(num_observations):
+            xx = fprobt[:, nn, kk]
+            plt.plot(zz[:, kk], xx, c=[0.5, 0.5, 0.5])
+        pp = pprobt[:, kk]
+        FF = Fprobt[:, kk]
+        plt.plot(zz[:, kk], pp, c=[1.0, 0.0, 1.0], label= 'Mixture')
+        plt.plot(zz[:, kk], FF, c=[0.0, 0.0, 0.0], label= 'Prior')
+        plt.xlabel('Z' + str(kk))
+
+    plt.tight_layout()
 
 
 
