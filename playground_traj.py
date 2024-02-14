@@ -249,18 +249,20 @@ plot_loss(rpm, offset=0)
 #%%
 latent_true = main_trajectory[:num_observation]
 
-utils_process.plot_rpgpfa_summary(
+fig = utils_process.plot_rpgpfa_summary(
     rpm=rpm,
-    plot_id_factors=[1],
+    plot_id_factors=[0, 1],
     plot_id_observations=[3],
-    plot_variational=False,
+    plot_variational=True,
     plot_regressed=True,
-    plot_variance=False,
+    plot_variance=True,
     plot_true=True,
     latent_true=latent_true,
     regress_param=None,
     plot_type='linear',
 )
 
+fig.set_figwidth(10)
+fig.set_figheight(6)
 
 
