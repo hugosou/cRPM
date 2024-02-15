@@ -7,7 +7,7 @@ See below for a brief model description and our [paper](https://arxiv.org/abs/22
 
 `recognition_parametrised_model.py` contains the main class to instantiate and fit continuous RPM models.
 
-`flexible_multivariate_normal.py` defines and handles Multivariate Normal Distributions using either natural parameters or mean and variance.
+`flexible_multivariate_normal.py` defines and handles Multivariate Normal Distributions using either natural or standard parameters.
 
 ## Demo
 
