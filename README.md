@@ -1,7 +1,7 @@
 
 # (Continuous) Recognition Parametrised Model (cRPM)
 
-See [Walker\*, Soulat\*, Yu, Sahani\* (2023)](https://arxiv.org/abs/2209.05661) for details.
+See our [paper ](https://arxiv.org/abs/2209.05661) (Walker\*, Soulat\*, Yu, Sahani\* -2023) for details.
 
 ## Model
 
