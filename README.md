@@ -22,7 +22,7 @@ $$\mathcal{Z}=\{\mathsf{z}_t:t=1 \dots T\}$$
 **Hypothesis**: Given $\mathcal{Z}$, observations are conditionally independent across modality and time. The full joint writes:
 
 
-$$ \mathsf{P_{\theta}}(\mathcal{X}, \mathcal{Z}) = \mathsf{p_\theta_z}}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p_{0,jt}}(\mathsf{x_{jt}}) \frac{\mathsf{f_{\theta j}}(\mathsf{z_{t}} | \mathsf{x_{jt}})}{\mathsf{F_{\theta j}}(\mathsf{z}_{t})} \right) $$
+$$ \mathsf{P_{\theta}}(\mathcal{X}, \mathcal{Z}) = \mathsf{p_{\theta_z}}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p_{0,jt}}(\mathsf{x_{jt}}) \frac{\mathsf{f_{\theta j}}(\mathsf{z_{t}} | \mathsf{x_{jt}})}{\mathsf{F_{\theta j}}(\mathsf{z}_{t})} \right) $$
 
 
 Where each recognition factor $\mathsf{f}_{\theta j}$ is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $\mathsf{p}_{0,jt}$ are defined using a set of observations $\{ \mathcal{X}^{(n)} \}_{n=1}^N$ such that: 
