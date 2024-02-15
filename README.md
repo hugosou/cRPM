@@ -25,9 +25,9 @@ $$\mathcal{Z}=\{\mathsf{z}_t:t=1 \dots T\}$$
 $$ \mathsf{P_{\theta}}(\mathcal{X}, \mathcal{Z}) = \mathsf{p_{\theta_z}}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p_{0,jt}}(\mathsf{x_{jt}}) \frac{\mathsf{f_{\theta j}}(\mathsf{z_{t}} | \mathsf{x_{jt}})}{\mathsf{F_{\theta j}}(\mathsf{z}_{t})} \right) $$
 
 
-Where each recognition factor $\mathsf{f}_{\theta j}$ is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $\mathsf{p}_{0,jt}$ are defined using a set of observations $\{ \mathcal{X}^{(n)} \}_{n=1}^N$ such that: 
+Where each recognition factor $\mathsf{f_{\theta j}}$ is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $\mathsf{p_{0,jt}}$ are defined using a set of observations $\{ \mathcal{X}^{(n)} \}_{n=1}^N$ such that: 
 
-$$\mathsf{p}_{0,jt}(\mathsf{x}_{jt}) = \frac1N \sum_{n=1}^N \delta(\mathsf{x}_{jt} - \mathsf{x}_{jt}^{(n)})$$
+$$\mathsf{p_{0,jt}}(\mathsf{x_{jt}}) = \frac1N \sum_{n=1}^N \delta(\mathsf{x_{jt}} - \mathsf{x_{jt}}^{(n)})$$
 
 where $\delta$ is a diract. It comes that:
 
