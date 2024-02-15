@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # import torch
 # import numpy as np
 # from torch import matmul
@@ -31,6 +32,39 @@
 # # trajectory_name = 'trajectories_param.pkl'
 #
 # trajectory_folder = '/Users/hugosoulat/Documents/PYTHON/videos_rpm/'
+=======
+import torch
+import numpy as np
+from torch import matmul
+import matplotlib.pyplot as plt
+
+from utils_generate_toydatasets import generate_lorenz
+from kernels import RBFKernel
+
+import torch
+import numpy as np
+from torch import matmul
+import matplotlib.pyplot as plt
+from kernels import RBFKernel
+import torch.nn.functional as F
+from utils_generate_toydatasets import generate_lorenz
+from mpl_toolkits.mplot3d import Axes3D
+import imageio
+import imageio
+import pickle
+# %%
+
+
+# GPUs ?
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Data type: float64 / float32
+data_type = torch.float32
+torch.set_default_dtype(data_type)
+
+# Stored Videos
+# trajectory_folder = '../videos_rpm/'
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
 # trajectory_name = 'trajectories_param.pkl'
 #
 #

@@ -21,6 +21,8 @@ def rpm_save(
             true_latent=true_latent,
             observations=observations,
         )
+        
+        model_save = remove_lambda(model_save)
 
         model_save = remove_lambda(model_save)
 
@@ -31,10 +33,18 @@ def rpm_save(
 def rpm_load(
         model_name: str,
         device: str = "cpu",
+<<<<<<< HEAD
         observations: Union[torch.Tensor, List[torch.Tensor], Tuple[torch.Tensor]] = None,
         observation_locations: torch.Tensor = None,
         true_latent=None,
 ) -> (RPM, List[torch.Tensor]):
+=======
+        observations:Union[torch.Tensor, List[torch.Tensor], Tuple[torch.Tensor]] = None,
+        observation_locations:torch.Tensor = None,
+        true_latent = None,
+        ) -> (RPM, List[torch.Tensor]):
+
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
     with open(model_name, 'rb') as outp:
         loaded_dict = _dictionarize(pickle.load(outp), device=device)
 
@@ -44,7 +54,11 @@ def rpm_load(
         if observations is None else observations
     true_latent = loaded_dict['true_latent'] \
         if true_latent is None else true_latent
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
     loaded_rpm = RPM(
         observations,
         observation_locations,
@@ -84,7 +98,11 @@ def _dictionarize(
     """ Take RPM or "dictionarized" model and move it as a dictionary to device"""
 
     if isinstance(model, RPM):
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
         dict_model = {
             'fit_params': model.fit_params,
             'prior': model.prior,
@@ -112,23 +130,37 @@ def _dictionarize(
 
 
 import copy
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
 def check_lambda(func):
     if callable(func):
         try:
             return func.__name__ == "<lambda>"
         except AttributeError:
             return False
+<<<<<<< HEAD
 
+=======
+            
+            
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
     return callable(func) and func.__name__ == "<lambda>"
 
 
 def remove_lambda(old_dict: dict):
     """Remove unpickable Lambda functions"""
+<<<<<<< HEAD
 
     new_dict = copy.deepcopy(old_dict)
 
+=======
+    
+    new_dict = copy.deepcopy(old_dict)
+    
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
     for key in old_dict.keys():
         if type(old_dict[key]) is dict:
             new_dict[key] = remove_lambda(new_dict[key])
@@ -136,5 +168,9 @@ def remove_lambda(old_dict: dict):
             del new_dict[key]
         else:
             pass
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 3e890ac41f73e284ba1c97e54271c05fe2661559
     return new_dict
