@@ -176,103 +176,16 @@ class Mixin:
     def _init_factors(self, observations):
         """ Initialize recognition network of each factor """
 
-        dim_inputs = [
-            obsi.shape[2:] for obsi in observations
-        ]
+        if self.recognition_factors is None:
 
-        # Grasp fit params
-        fit_params = self.fit_params['factors_params']
-        dim_latent = self.dim_latent
-        num_factors = self.num_factors
+            dim_inputs = [
+                obsi.shape[2:] for obsi in observations
+            ]
 
-        # Convolutional parameters
-        channels = fit_params["channels"]
-        kernel_conv = fit_params["kernel_conv"]
-        kernel_pool = fit_params["kernel_pool"]
-        dropout = fit_params["dropout"]
-
-        # Fully connected layers parameters
-        dim_hidden = fit_params["dim_hidden"]
-        non_linearity = fit_params["nonlinearity"]
-
-        # Covariance type
-        covariance = fit_params["covariance"]
-
-        # Build and Append networks
-        recognition_factors = []
-        for obsi in range(num_factors):
-            neti = recognition.Net(
-                dim_input=dim_inputs[obsi],
-                dim_latent=dim_latent,
-                covariance=covariance[obsi],
-                kernel_conv=kernel_conv[obsi],
-                kernel_pool=kernel_pool[obsi],
-                channels=channels[obsi],
-                dim_hidden=dim_hidden[obsi],
-                non_linearity=non_linearity[obsi],
-                zero_init=False,
-                dropout=dropout,
-            ).to(self.device.index)
-            recognition_factors.append(neti)
-
-        self.recognition_factors = recognition_factors
-
-    def _init_auxiliary(self, observations):
-        """ Initialize auxiliary recognition network of each factor """
-
-        dim_inputs = [
-            obsi.shape[2:] for obsi in observations
-        ]
-
-        # Grasp fit params
-        fit_params = self.fit_params['auxiliary_params']
-        dim_latent = self.dim_latent
-        num_factors = self.num_factors
-
-        # Convolutional parameters
-        channels = fit_params["channels"]
-        kernel_conv = fit_params["kernel_conv"]
-        kernel_pool = fit_params["kernel_pool"]
-        dropout = fit_params["dropout"]
-
-        # Fully connected layers parameters
-        dim_hidden = fit_params["dim_hidden"]
-        non_linearity = fit_params["nonlinearity"]
-
-        # Covariance type
-        covariance = fit_params["covariance"]
-
-        # Build and Append networks
-        recognition_auxiliary = []
-        for obsi in range(num_factors):
-            neti = recognition.Net(
-                dim_input=dim_inputs[obsi],
-                dim_latent=dim_latent,
-                covariance=covariance[obsi],
-                kernel_conv=kernel_conv[obsi],
-                kernel_pool=kernel_pool[obsi],
-                channels=channels[obsi],
-                dim_hidden=dim_hidden[obsi],
-                non_linearity=non_linearity[obsi],
-                zero_init=False, # TODO INIT TO ZERO MAYBE ?
-                dropout=dropout,
-            ).to(self.device.index)
-            recognition_auxiliary.append(neti)
-
-        self.recognition_auxiliary = recognition_auxiliary
-
-    def _init_variational(self, observations):
-
-        # Init Recognition Network
-        dim_inputs = [
-            obsi.shape[2:] for obsi in observations
-        ]
-
-        # Grasp fit params
-        fit_params = self.fit_params['variational_params']
-        dim_latent = self.dim_latent
-
-        if fit_params['inference_mode'] == 'amortized':
+            # Grasp fit params
+            fit_params = self.fit_params['factors_params']
+            dim_latent = self.dim_latent
+            num_factors = self.num_factors
 
             # Convolutional parameters
             channels = fit_params["channels"]
@@ -280,77 +193,170 @@ class Mixin:
             kernel_pool = fit_params["kernel_pool"]
             dropout = fit_params["dropout"]
 
+            # Fully connected layers parameters
+            dim_hidden = fit_params["dim_hidden"]
+            non_linearity = fit_params["nonlinearity"]
+
             # Covariance type
             covariance = fit_params["covariance"]
+
+            # Build and Append networks
+            recognition_factors = []
+            for obsi in range(num_factors):
+                neti = recognition.Net(
+                    dim_input=dim_inputs[obsi],
+                    dim_latent=dim_latent,
+                    covariance=covariance[obsi],
+                    kernel_conv=kernel_conv[obsi],
+                    kernel_pool=kernel_pool[obsi],
+                    channels=channels[obsi],
+                    dim_hidden=dim_hidden[obsi],
+                    non_linearity=non_linearity[obsi],
+                    zero_init=False,
+                    dropout=dropout,
+                ).to(self.device.index)
+                recognition_factors.append(neti)
+
+            self.recognition_factors = recognition_factors
+
+    def _init_auxiliary(self, observations):
+        """ Initialize auxiliary recognition network of each factor """
+
+        if self.recognition_auxiliary is None:
+
+            dim_inputs = [
+                obsi.shape[2:] for obsi in observations
+            ]
+
+            # Grasp fit params
+            fit_params = self.fit_params['auxiliary_params']
+            dim_latent = self.dim_latent
+            num_factors = self.num_factors
+
+            # Convolutional parameters
+            channels = fit_params["channels"]
+            kernel_conv = fit_params["kernel_conv"]
+            kernel_pool = fit_params["kernel_pool"]
+            dropout = fit_params["dropout"]
 
             # Fully connected layers parameters
             dim_hidden = fit_params["dim_hidden"]
-            dim_hidden_merged = fit_params["dim_hidden_merged"]
             non_linearity = fit_params["nonlinearity"]
-            non_linearity_merged = fit_params["nonlinearity_merged"]
-
-
-            recognition_variational = recognition.MultiInputNet(
-                dim_inputs,
-                dim_latent,
-                covariance=covariance,
-                kernel_conv=kernel_conv,
-                kernel_pool=kernel_pool,
-                channels=channels,
-                dim_hidden=dim_hidden,
-                dim_hidden_merged=dim_hidden_merged,
-                non_linearity= non_linearity,
-                non_linearity_merged=non_linearity_merged,
-                zero_init=False,
-                dropout=dropout,
-            ).to(self.device.index)
-
-        elif fit_params['inference_mode'] == 'parametrized':
-
-            # Problem dimension
-            dim_latent = self.dim_latent
-            num_observation = self.num_observation
-            num_inducing_points = self.num_inducing_points
 
             # Covariance type
             covariance = fit_params["covariance"]
 
-            # GP Prior Covariances
-            with torch.no_grad():
-                prior_covariance = self.prior.covariance(
-                    self.inducing_locations,
-                    self.inducing_locations
-                ).detach().to('cpu')
+            # Build and Append networks
+            recognition_auxiliary = []
+            for obsi in range(num_factors):
+                neti = recognition.Net(
+                    dim_input=dim_inputs[obsi],
+                    dim_latent=dim_latent,
+                    covariance=covariance[obsi],
+                    kernel_conv=kernel_conv[obsi],
+                    kernel_pool=kernel_pool[obsi],
+                    channels=channels[obsi],
+                    dim_hidden=dim_hidden[obsi],
+                    non_linearity=non_linearity[obsi],
+                    zero_init=False, # TODO INIT TO ZERO MAYBE ?
+                    dropout=dropout,
+                ).to(self.device.index)
+                recognition_auxiliary.append(neti)
 
-            # delta to avoid inversion issues
-            Id = 1e-3 * torch.eye(
-                self.num_inducing_points,
-                dtype=prior_covariance.dtype,
-            )
+            self.recognition_auxiliary = recognition_auxiliary
 
-            # Second natural parameters
-            natural2_chol = torch.linalg.cholesky(0.5 * torch.linalg.inv(prior_covariance + Id))
-            natural2_vect = tril_to_vector(natural2_chol).unsqueeze(0).repeat(self.num_observation, 1, 1)
+    def _init_variational(self, observations):
 
-            # 1st natural parameters
-            natural1 = torch.zeros(
-                self.num_observation,
-                self.dim_latent,
-                self.num_inducing_points,
-                dtype=prior_covariance.dtype,
-            )
+        if self.recognition_variational is None:
 
-            # In this case, the covariance is temporal (!)
-            recognition_variational = recognition.FullyParametrised(
-                num_inducing_points,
-                [num_observation, dim_latent],
-                covariance=covariance,
-                init=(natural1, natural2_vect),
-            ).to(self.device.index)
+            # Init Recognition Network
+            dim_inputs = [
+                obsi.shape[2:] for obsi in observations
+            ]
 
-        else:
-            raise NotImplementedError()
+            # Grasp fit params
+            fit_params = self.fit_params['variational_params']
+            dim_latent = self.dim_latent
 
-        self.recognition_variational = recognition_variational
+            if fit_params['inference_mode'] == 'amortized':
+
+                # Convolutional parameters
+                channels = fit_params["channels"]
+                kernel_conv = fit_params["kernel_conv"]
+                kernel_pool = fit_params["kernel_pool"]
+                dropout = fit_params["dropout"]
+
+                # Covariance type
+                covariance = fit_params["covariance"]
+
+                # Fully connected layers parameters
+                dim_hidden = fit_params["dim_hidden"]
+                dim_hidden_merged = fit_params["dim_hidden_merged"]
+                non_linearity = fit_params["nonlinearity"]
+                non_linearity_merged = fit_params["nonlinearity_merged"]
+
+
+                recognition_variational = recognition.MultiInputNet(
+                    dim_inputs,
+                    dim_latent,
+                    covariance=covariance,
+                    kernel_conv=kernel_conv,
+                    kernel_pool=kernel_pool,
+                    channels=channels,
+                    dim_hidden=dim_hidden,
+                    dim_hidden_merged=dim_hidden_merged,
+                    non_linearity= non_linearity,
+                    non_linearity_merged=non_linearity_merged,
+                    zero_init=False,
+                    dropout=dropout,
+                ).to(self.device.index)
+
+            elif fit_params['inference_mode'] == 'parametrized':
+
+                # Problem dimension
+                dim_latent = self.dim_latent
+                num_observation = self.num_observation
+                num_inducing_points = self.num_inducing_points
+
+                # Covariance type
+                covariance = fit_params["covariance"]
+
+                # GP Prior Covariances
+                with torch.no_grad():
+                    prior_covariance = self.prior.covariance(
+                        self.inducing_locations,
+                        self.inducing_locations
+                    ).detach().to('cpu')
+
+                # delta to avoid inversion issues
+                Id = 1e-3 * torch.eye(
+                    self.num_inducing_points,
+                    dtype=prior_covariance.dtype,
+                )
+
+                # Second natural parameters
+                natural2_chol = torch.linalg.cholesky(0.5 * torch.linalg.inv(prior_covariance + Id))
+                natural2_vect = tril_to_vector(natural2_chol).unsqueeze(0).repeat(self.num_observation, 1, 1)
+
+                # 1st natural parameters
+                natural1 = torch.zeros(
+                    self.num_observation,
+                    self.dim_latent,
+                    self.num_inducing_points,
+                    dtype=prior_covariance.dtype,
+                )
+
+                # In this case, the covariance is temporal (!)
+                recognition_variational = recognition.FullyParametrised(
+                    num_inducing_points,
+                    [num_observation, dim_latent],
+                    covariance=covariance,
+                    init=(natural1, natural2_vect),
+                ).to(self.device.index)
+
+            else:
+                raise NotImplementedError()
+
+            self.recognition_variational = recognition_variational
 
 
