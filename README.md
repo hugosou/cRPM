@@ -11,14 +11,14 @@ See below for a brief model description and our [paper](https://arxiv.org/abs/22
 
 ## Demo
 
-We provide Jupyter notebooks to illustrate RP-GPFA:
+We provide Jupyter notebooks to illustrate cRPM capabilities:
 
 1) Time Series
 
 - Structured bouncing ball experiment: demonstrates the advantages of bypassing the specification of a generative model. `./demo_textured_bouncing_ball.ipynb`
 
 
-- Multi-Modal Time series: 3D moving ellipsoid. RP-GPFA combines video and range sensor signal to infer the 2D position of an "agent" of interest. (The moving Ellipsoid dataset and stored demo results can be downloaded [here](https://www.dropbox.com/sh/70yc801n3p64ke1/AAC3irVxD9p119N22J1qvqYYa?dl=0)) `./demo_textured_bouncing_ball.ipynb`
+- Multi-Modal Time series: 3D moving ellipsoid. cRPM combines video and range sensor signal to infer the 2D position of an "agent" of interest. (The moving Ellipsoid dataset and stored demo results can be downloaded [here](https://www.dropbox.com/sh/70yc801n3p64ke1/AAC3irVxD9p119N22J1qvqYYa?dl=0)) `./demo_textured_bouncing_ball.ipynb`
 
 2) Static Images
 
