@@ -199,14 +199,15 @@ def plot_rpgpfa_summary(
                 plt.plot(
                     xx[:, 0],
                     xx[:, 1],
-                    lw=0.5,
+                    lw=1,
                     color='k',
                     label='Fit',
                 )
                 plt.scatter(
                     xx[0, 0],
                     xx[0, 1],
-                    label='start'
+                    label='start',
+                    color = 'k',
                 )
 
                 if latent_true is not None and plot_true:
@@ -220,10 +221,11 @@ def plot_rpgpfa_summary(
                         label='True',
                     )
 
-                plt.legend()
+                #plt.legend()
                 plt.xlabel("Z[1]")
                 plt.ylabel("Z[2]")
                 plt.title(names[mm])
+                #plt.tight_layout()
 
     else:
         raise NotImplementedError()
