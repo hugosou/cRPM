@@ -69,7 +69,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
     def __init__(
             self,
             observations: Union[torch.Tensor, List[torch.tensor]],
-            observation_locations: torch.Tensor,  # len_observation x dim_locations. Location of the Observations
+            observation_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of the Observations
             inducing_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of inducing points
             loss_tot: List = None,
             fit_params: Dict = None,
