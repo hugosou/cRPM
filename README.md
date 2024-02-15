@@ -31,9 +31,9 @@ $$\mathsf{p_{0,jt}}(\mathsf{x_{jt}}) = \frac1N \sum_{n=1}^N \delta(\mathsf{x_{jt
 
 where $\delta$ is a diract. It comes that:
 
-$$\mathsf{F}_{\theta j}(\mathsf{z}_{t}) = \frac1N \sum_{n=1}^N \mathsf{f}_{\theta j}(\mathsf{z}_{t} | \mathsf{x}_{jt}^{(n)})$$
+$$\mathsf{F_{\theta j}}(\mathsf{z_{t}}) = \frac1N \sum_{n=1}^N \mathsf{f_{\theta j}}(\mathsf{z_{t}} | \mathsf{x_{jt}}^{(n)})$$
 
-Finally, the prior $\mathsf{p}_{\theta z}(\mathcal{Z})$ comprises independent Gaussian Process priors (over time, space, etc) for each latent dimension. Optimization uses a lower bound to the ELBO (Variational Free Energy) hence a variational distribution and a set of auxiliary factors.
+Finally, the prior $\mathsf{p_{\theta z}}(\mathcal{Z})$ comprises independent Gaussian Process priors (over time, space, etc) for each latent dimension. Optimization uses a lower bound to the ELBO (Variational Free Energy) hence a variational distribution and a set of auxiliary factors.
 
 ## Repository
 
