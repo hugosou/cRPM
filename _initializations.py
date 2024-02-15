@@ -99,6 +99,7 @@ class Mixin:
         _default_field(self.fit_params['auxiliary_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
         _default_field(self.fit_params['auxiliary_params'], key='covariance', default=_repeat_list('fixed', num_factors))
         _default_field(self.fit_params['auxiliary_params'], key='dropout', default=0.0)
+        _default_field(self.fit_params['auxiliary_params'], key='zero_init', default=False)
         _default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
 
@@ -242,6 +243,7 @@ class Mixin:
             # Fully connected layers parameters
             dim_hidden = fit_params["dim_hidden"]
             non_linearity = fit_params["nonlinearity"]
+            zero_init = fit_params["zero_init"]
 
             # Covariance type
             covariance = fit_params["covariance"]
@@ -258,7 +260,7 @@ class Mixin:
                     channels=channels[obsi],
                     dim_hidden=dim_hidden[obsi],
                     non_linearity=non_linearity[obsi],
-                    zero_init=False, # TODO INIT TO ZERO MAYBE ?
+                    zero_init=zero_init,
                     dropout=dropout,
                 ).to(self.device.index)
                 recognition_auxiliary.append(neti)
