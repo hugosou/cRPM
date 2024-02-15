@@ -13,7 +13,7 @@ $$ \text{ }$$
 
 - Observation: $J$ time-series measured over $T$ timesteps:
 
-$$\mathcal{X} = { \mathsf{x}_{jt} : j = 1\dots J, t=1\dots T }$$
+$$\mathcal{X} = `\{ \mathsf{x}_{jt} : j = 1\dots J, t=1\dots T `\}$$
 
 - Latent: $K$-dimensional variable
 
