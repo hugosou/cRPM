@@ -112,7 +112,7 @@ class Mixin:
         _default_field(self.fit_params['variational_params'], key='dim_hidden', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['variational_params'], key='dim_hidden_merged', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['variational_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
-        _default_field(self.fit_params['variational_params'], key='nonlinearity_merged', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['variational_params'], key='nonlinearity_merged', default=F.relu)
         _default_field(self.fit_params['variational_params'], key='covariance', default=_repeat_list('fixed', num_factors))
         _default_field(self.fit_params['variational_params'], key='dropout', default=0.0)
         _default_field(self.fit_params['variational_params'], key='optimizer', default=optimizer_closure_default)
