@@ -21,12 +21,7 @@ $$\mathcal{Z}=\{\mathsf{z}_t:t=1 \dots T\}$$
 
 **Hypothesis**: Given $\mathcal{Z}$, observations are conditionally independent across modality and time. The full joint writes:
 
-
-$$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = \mathsf{p} _{s}$$
-
-
-
-$$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = \mathsf{p}_{\theta_z}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p}_{0,jt}(\mathsf{x}_{jt}) \frac{\mathsf{f}_{\theta j}(\mathsf{z}_{t} | \mathsf{x}_{jt})}{\mathsf{F}_{\theta j}(\mathsf{z}_{t})} \right) $$
+$$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = \mathsf{p} _{\theta_z}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p} _{0,jt}(\mathsf{x} _{jt}) \frac{\mathsf{f} _{\theta j}(\mathsf{z}_{t} | \mathsf{x} _{jt})}{\mathsf{F} _{\theta j}(\mathsf{z} _{t})} \right) $$
 
 
 Where each recognition factor $\mathsf{f}_{\theta j}$ is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $\mathsf{p}_{0,jt}$ are defined using a set of observations $\{ \mathcal{X}^{(n)} \}_{n=1}^N$ such that: 
