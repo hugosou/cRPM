@@ -13,11 +13,11 @@ $$ \text{ }$$
 
 - Observation: $J$ time-series measured over $T$ timesteps:
 
-$$\mathcal{X} = \{ \mathsf{x_{jt}} : j = 1\dots J, t=1\dots T \}$$
+$$\mathcal{X} = \\{ \mathsf{x_{jt}} : j = 1\dots J, t=1\dots T \\}$$
 
 - Latent: $K$-dimensional variable
 
-$$\mathcal{Z}=\{\mathsf{z}_t:t=1 \dots T\}$$
+$$\mathcal{Z}=\\{\mathsf{z}_t:t=1 \dots T\\}$$
 
 **Hypothesis**: Given $\mathcal{Z}$, observations are conditionally independent across modality and time. The full joint writes:
 
