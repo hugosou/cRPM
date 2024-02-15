@@ -24,7 +24,7 @@ $$\mathcal{Z}=\\{\mathsf{z}_t:t=1 \dots T\\}$$
 $$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = p _{\theta_z}(\mathcal{Z}) \prod _{j,t} \left( p _{0,jt}(\mathsf{x} _{jt}) \frac{{f} _{\theta j}(\mathsf{z} _{t} | \mathsf{x} _{jt})}{\mathsf{F} _{\theta j}(\mathsf{z} _{t})} \right) $$
 
 
-Where each recognition factor $f$  is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $p_{0,jt}$ are defined using a set of observations $\\{ \mathcal{X}^{(n)} \\}_{n=1}^N$ such that: 
+Where each recognition factor $f_{\theta j}$  is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $p_{0,jt}$ are defined using a set of observations $\\{ \mathcal{X}^{(n)} \\}_{n=1}^N$ such that: 
 
 $$\mathsf{p}_{0,jt}(\mathsf{x}_{jt}) = \frac1N \sum_{n=1}^N \delta(\mathsf{x}_{jt} - \mathsf{x}_{jt}^{(n)})$$
 
