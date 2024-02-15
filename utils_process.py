@@ -108,7 +108,7 @@ def plot_rpgpfa_summary(
     if plot_type == 'linear':
 
         # Plot each dimensions across time
-        plt.figure()
+        fig = plt.figure()
         for mm in range(len(means)):
             for dim in range(dims):
                 plt.subplot(dims, len(means), mm + dim * len(means) + 1)
@@ -148,23 +148,23 @@ def plot_rpgpfa_summary(
 
         # 3D Plot
         for mm in range(len(means)):
-            ax = plt.figure().add_subplot(projection='3d')
+            fig = plt.figure().add_subplot(projection='3d')
             for nn in range(means[mm].shape[0]):
 
                 # E[Z]
                 xx = means[mm][nn].numpy()
 
-                ax.plot(
+                fig.plot(
                     xx[:, 0],
                     xx[:, 1],
                     xx[:, 2],
                     lw=0.5, color='k'
                 )
 
-                ax.set_xlabel("Z[1]")
-                ax.set_ylabel("Z[2]")
-                ax.set_zlabel("Z[3]")
-                ax.set_title(names[mm])
+                fig.set_xlabel("Z[1]")
+                fig.set_ylabel("Z[2]")
+                fig.set_zlabel("Z[3]")
+                fig.set_title(names[mm])
 
         if latent_true is not None and plot_true:
             ax = plt.figure().add_subplot(projection='3d')
@@ -188,10 +188,10 @@ def plot_rpgpfa_summary(
         assert dims == 2, 'Error: 2D plot only supported when latent is 2D'
 
         # 2D Plot
+        fig = plt.figure()
         for mm in range(len(means)):
 
-            plt.figure()
-
+            plt.subplot(1, len(means), mm + 1)
             for nn in range(means[mm].shape[0]):
                 # E[Z]
                 xx = means[mm][nn].numpy()
@@ -225,11 +225,10 @@ def plot_rpgpfa_summary(
                 plt.ylabel("Z[2]")
                 plt.title(names[mm])
 
-
-
-
     else:
         raise NotImplementedError()
+
+    return fig
 
 
 def plot_rpgpfa_mixture(
