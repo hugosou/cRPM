@@ -26,7 +26,7 @@ $$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = p _{\theta_z}(\mathcal{Z}) \p
 
 Where each recognition factor $f_{\theta j}$  is parametrised by a neural network $\theta_j$ that outputs the natural parameters of a multivariate normal distribution. The (empirical) marginals $p_{0,jt}$ are defined using a set of observations $\\{ \mathcal{X}^{(n)} \\}_{n=1}^N$ such that: 
 
-$$p_{0,jt}(\mathsf{x} _{jt} ) = \frac1N \sum_{n=1}^N \delta(\mathsf{x} _{jt} - \mathsf{x} _{jt}^{(n)})$$
+$$p_{0,jt}(\mathsf{x} _{jt} ) = \frac{1}{N} \sum_{n=1}^N \delta(\mathsf{x} _{jt} - \mathsf{x} _{jt}^{(n)})$$
 
 where $\delta$ is a diract. It comes that:
 
