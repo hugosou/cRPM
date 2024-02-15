@@ -22,7 +22,7 @@ $$\mathcal{Z}=\{\mathsf{z}_t:t=1 \dots T\}$$
 **Hypothesis**: Given $\mathcal{Z}$, observations are conditionally independent across modality and time. The full joint writes:
 
 
-$$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = \mathsf{p}_{\theta_z}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p}_{0,jt}(\mathsf{x}_{jt})$$
+$$ \mathsf{P}_{\theta}(\mathcal{X}, \mathcal{Z}) = \mathsf{p}_{\theta z}(\mathcal{Z}) \prod_{j,t} \left( \mathsf{p}_{0,jt}(\mathsf{x}_{jt})$$
 
 
 
