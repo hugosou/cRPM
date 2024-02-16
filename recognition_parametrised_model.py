@@ -20,11 +20,9 @@ import _updates
 
 from utils import diagonalize
 
-
-# TODO: do not forward auxiliary
+# TODO: Freeze auxiliary
 # TODO: rotate to diagonalize covariances
 # TODO: Check Amortized RPGPFA
-# TODO: important to CHECK ! The auxiliary is consant across across N -> Does not make any sense to me !
 
 
 class RPM(_initializations.Mixin, _updates.Mixin):
