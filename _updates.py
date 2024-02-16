@@ -91,9 +91,13 @@ class Mixin:
             device=device,
         )
 
+        freeze_gradient = self.fit_params['auxiliary_params']['fixed']
+
         for ii, obsi in enumerate(observations):
             # Grasp current recognition
-            reci = self.recognition_auxiliary[ii](obsi)
+
+            with torch.set_grad_enabled(not freeze_gradient):
+                reci = self.recognition_auxiliary[ii](obsi)
 
             # Temporary 1st parameter
             auxiliary1[ii] = reci[..., :dim_latent]

@@ -345,7 +345,7 @@ class FullyParametrised(Encoder):
             param2_init = torch.zeros(*batch_shape, int(dim_latent * (dim_latent + 1) / 2), requires_grad=False)
 
             if self.zero_init:
-                param2_init[..., diag_idx] = 0.0
+                param2_init[..., diag_idx] = 1e-6  # 0 ?
             else:
                 param2_init[..., diag_idx] = 0.5
 
@@ -364,7 +364,7 @@ class FullyParametrised(Encoder):
             param2_init = torch.zeros(int(dim_latent * (dim_latent + 1) / 2), requires_grad=False)
 
             if self.zero_init:
-                param2_init[diag_idx] = 0.0
+                param2_init[diag_idx] = 1e-6  # 0.0
             else:
                 param2_init[diag_idx] = 0.5
 
@@ -373,7 +373,7 @@ class FullyParametrised(Encoder):
         elif self.covariance == 'fixed_diag':
 
             if self.zero_init:
-                param2_init = 0.0 * torch.ones(dim_latent, requires_grad=False)
+                param2_init = 1e-6  * torch.ones(dim_latent, requires_grad=False)  # 0.0
             else:
                 param2_init = 0.5 * torch.ones(dim_latent, requires_grad=False)
 
@@ -421,16 +421,16 @@ def init_param2(covariance, dim_latent, zero_init):
         diag_idx = vector_to_tril_diag_idx(dim_latent)
         param2_init = torch.zeros(int(dim_latent * (dim_latent + 1) / 2), requires_grad=False)
         if zero_init:
-            param2_init[diag_idx] = 0.0
+            param2_init[diag_idx] = 1e-6  # 0.0
         else:
-            param2_init[diag_idx] = 0.5  # TODO check sign
+            param2_init[diag_idx] = 0.5
         param2 = torch.nn.Parameter(param2_init, requires_grad=True)
 
     elif covariance == 'fixed_diag':
         if zero_init:
-            param2_init = 0.0 * torch.ones(dim_latent, requires_grad=False)  # TODO check sign
+            param2_init = 1e-6 * torch.ones(dim_latent, requires_grad=False)
         else:
-            param2_init = 0.5 * torch.ones(dim_latent, requires_grad=False)  # TODO check sign
+            param2_init = 0.5 * torch.ones(dim_latent, requires_grad=False)
         param2 = torch.nn.Parameter(param2_init, requires_grad=True)
 
     else:
@@ -553,8 +553,9 @@ def append_mlp(layers, dim_input, dim_hidden, dim_output=None, zero_init=False):
             layers.append(nn.Linear(dim_input, dim_output))
 
         if zero_init:
-            torch.nn.init.constant_(layers[-1].weight, 0)
-            torch.nn.init.constant_(layers[-1].bias, 0)
+            torch.nn.init.constant_(layers[-1].weight, 1e-6 )
+            torch.nn.init.constant_(layers[-1].bias, 1e-6 )
+
 
 def reorganize_sufficient_statistics(y, dim_latent, covariance, idx_diag, dim_output, param2):
     """

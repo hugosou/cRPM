@@ -102,6 +102,8 @@ class Mixin:
         _default_field(self.fit_params['auxiliary_params'], key='zero_init', default=False)
         _default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
+        _default_field(self.fit_params['auxiliary_params'], key='fixed', default=False)
+
 
         # Default Variational Parameters
         _default_field(self.fit_params, key='variational_params', default={})

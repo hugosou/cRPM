@@ -3,7 +3,6 @@ import numpy as np
 from torch import matmul
 import matplotlib.pyplot as plt
 
-from utils_generate_toydatasets import generate_lorenz
 from kernels import RBFKernel
 
 import torch
@@ -12,21 +11,9 @@ from torch import matmul
 import matplotlib.pyplot as plt
 from kernels import RBFKernel
 import torch.nn.functional as F
-from utils_generate_toydatasets import generate_lorenz
-from mpl_toolkits.mplot3d import Axes3D
+from utils_demo import generate_lorenz
 
-# %%
 
-aa = torch.nn.Parameter(torch.rand(10))
-
-optimizer0 = torch.optim.Adam(params=[aa])
-
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer0, T_max=300)
-scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer0, factor=1.0, total_iters=1)
-
-scheduler_closure = lambda opt: torch.optim.lr_scheduler.ConstantLR(
-    opt, factor=1.0, total_iters=1
-)
 
 
 
@@ -238,8 +225,10 @@ auxiliary_params = {
     'dim_hidden': [[10, 10], [10, 10], [10, 10]],
     'non_linearity': [F.relu, F.relu, F.relu],
     'covariance': ['fixed', 'fixed', 'fixed'],
-    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-5),
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1*1e-2),
     'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=0.8),
+    'zero_init': True,
+    'fixed':True,
 }
 
 variational_params = {
@@ -256,7 +245,7 @@ variational_params = {
 }
 
 fit_params = {
-    'num_epoch': 10000,
+    'num_epoch': 3,
     'batch_size': 4,
     'dim_latent': 2,
     'prior_params': prior_params,
@@ -275,6 +264,17 @@ rpm = RPM(
 
 rpm.fit(obs)
 
+
+#%%
+
+print(rpm.recognition_auxiliary[0].layers[-1].weight)
+print(rpm.recognition_auxiliary[0].layers[-1].bias)
+
+
+
+
+
+
 # %%
 from utils_process import plot_rpgpfa_summary, plot_loss, plot_rpgpfa_mixture
 
@@ -283,7 +283,7 @@ plot_loss(rpm)
 # %%
 
 
-plot_rpgpfa_summary(
+fig = plot_rpgpfa_summary(
     rpm=rpm,
     plot_id_factors=[0],
     plot_id_observations=[0],
@@ -295,6 +295,8 @@ plot_rpgpfa_summary(
     regress_param=None,
     plot_type='linear',
 )
+
+
 
 # %%
 
@@ -312,3 +314,40 @@ plot_rpgpfa_mixture(
 
 from utils import get_minibatches
 mini_batches = get_minibatches(2000, 1000, 10)
+
+
+#%%
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
+
+
+
+
+
+cov = np.array(
+    [
+        [0.5, 0.0],
+        [0.0, 0.5]
+    ]
+)
+
+loc = np.array([0, 0])
+
+
+fig, ax = plt.subplots()
+confidence_ellipse(loc, cov, ax, n_std=1.0, facecolor='k', alpha=0.2)
+plt.xlim([-10, 10])
+plt.ylim([-10, 10])
+
+
+
+
+
+
+
+
+
