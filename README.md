@@ -22,7 +22,7 @@ We provide Jupyter notebooks to illustrate cRPM capabilities:
 
 2) Static Images
 
-- MNIST Data: Non-linear embedding of images `./demo_peer_supervision.ipynb
+- MNIST Data: Non-linear embedding of images `./demo_peer_supervision.ipynb`
 
 ## Model
 
