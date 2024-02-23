@@ -1,9 +1,23 @@
-from recognition_parametrised_model import RPM
 import torch
-import pickle
+
 import copy
+import pickle
+
+from uuid import uuid4
+from datetime import date
 from typing import Union, List, Tuple
 
+from recognition_parametrised_model import RPM
+
+
+def unique_token():
+    return  str(date.today()) + '-' + str(uuid4())
+
+
+def rpm_load_param(model_name: str):
+    with open(model_name, 'rb') as outp:
+        rpm = pickle.load(outp)
+    return rpm['fit_params']
 
 def rpm_save(
         model: RPM,

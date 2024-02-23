@@ -624,7 +624,7 @@ def rotate_and_trim_precision(precision, rotate=True, normalize=False, threshold
     # Incorporate Trimming in rotation
     Id = torch.eye(precision_rotated.shape[-1], dtype=precision_rotated.dtype)
     Id = Id[:, kept_latent]
-    rotation = matmul(rotation, Id)
+    # rotation = matmul(rotation, Id)
 
     # Normalize over factors
     if normalize:
