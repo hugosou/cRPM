@@ -13,16 +13,16 @@ See below for a brief model description and our [paper](https://arxiv.org/abs/22
 
 We provide Jupyter notebooks to illustrate cRPM capabilities:
 
-1) Time Series
+### 1) Static Images
+
+- MNIST Data: Non-linear embedding of images `./demo_peer_supervision.ipynb`
+
+### 2) Multi-Modal Time Series
 
 - Structured bouncing ball experiment: demonstrates the advantages of bypassing the specification of a generative model. `./demo_textured_bouncing_ball.ipynb`
 
 
 - Multi-Modal Time series: 3D moving ellipsoid. cRPM combines video and range sensor signal to infer the 2D position of an "agent" of interest. (The moving Ellipsoid dataset and stored demo results can be downloaded [here](https://drive.google.com/file/d/1WkCVPcERyMEmTMEJKMPddhwmDvcnV-fN/view?usp=drive_link) `./demo_rpgpfa_multimodal.ipynb`
-
-2) Static Images
-
-- MNIST Data: Non-linear embedding of images `./demo_peer_supervision.ipynb`
 
 ## Model
 
