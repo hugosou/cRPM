@@ -1,0 +1,156 @@
+import pickle
+import numpy as np
+from datetime import datetime
+import matplotlib.pyplot as plt
+from utils_process import plot_loss
+
+import torch
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+
+from utils_demo import rearrange_mnist
+
+from fast_rpm import RPM
+import torch.nn.functional as F
+
+data_folder = './../MNIST'
+
+# Load MNIST
+train_data = datasets.MNIST(
+    root=data_folder,
+    train=True,
+    transform=ToTensor(),
+    download=True,
+)
+
+test_data = datasets.MNIST(
+    root=data_folder,
+    train=False,
+    transform=ToTensor()
+)
+
+# Random seeds
+torch.manual_seed(2)
+
+# Number of Conditionally independent Factors
+num_factors = 2
+
+# Sub-Sample original dataset
+train_length = 60000
+
+# Keep Only some digits (for efficiency)
+sub_ids = torch.tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+sub_ids = torch.tensor([0, 1, 2, 3, 4])
+num_digits = len(sub_ids)
+
+# Rearrange MNIST by grouping num_factors Conditionally independent Observations together
+observations, train_images, train_labels = rearrange_mnist(
+    train_data.train_data,
+    train_data.train_labels,
+    num_factors,
+    train_length=train_length,
+    sub_ids=sub_ids
+)
+
+# Rearrange MNIST by grouping num_factors Conditionally independent Observations together
+observations_test, test_images, test_labels = rearrange_mnist(
+    test_data.test_data,
+    test_data.test_labels,
+    num_factors,
+    train_length=test_data.test_labels.shape[0],
+    sub_ids=sub_ids
+)
+test_labels = test_labels.reshape(observations_test[0].shape[0], num_factors)
+
+
+num_plot = np.arange(6)
+plt.figure(figsize=(len(num_plot)*2, num_factors*2))
+for obsi in range(len(num_plot)):
+    for facti in range(num_factors):
+        plt.subplot(num_factors, len(num_plot), (1+obsi) + facti * len(num_plot))
+        plt.imshow(observations[facti][num_plot[obsi], :, :], cmap='gray')
+        plt.xticks([])
+        plt.yticks([])
+        if facti == 0:
+            plt.title('Obs. n=' + str(obsi))
+        if obsi == 0:
+            plt.ylabel('Factor. j=' + str(facti))
+
+
+# GPUs ?
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Data type: float64 / float32
+data_type = torch.float32
+torch.set_default_dtype(data_type)
+
+# Training Move to GPU
+obs = [(obsi / obsi.max()).to(device) for obsi in observations]
+
+# Testing Move to GPU
+obs_test = [(obsi / obsi.max()).to(device) for obsi in observations_test]
+
+# Fit params
+prior_params = {
+    'gp_kernel': 'RBF',
+    'scale': 1,
+    'lengthscale': 0.01,
+    'fit_kernel_scale': False,
+    'fit_kernel_scale_prior': False,
+    'fit_kernel_lengthscale': False,
+    'fit_kernel_lengthscale_prior': False,
+    'fit_prior_mean_param': False,
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+}
+
+factors_params = {
+    'channels': [[1, 10, 20], [1, 10, 20]],
+    'kernel_conv': [[5, 5], [5, 5]],
+    'kernel_pool': [[2, 2], [2, 2]],
+    'dim_hidden': [[50], [50]],
+    'nonlinearity': [F.relu, F.relu],
+    'covariance': ['fixed_diag', 'fixed_diag'],
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+}
+
+auxiliary_params = {
+    'channels': [[1, 10, 20], [1, 10, 20]],
+    'kernel_conv': [[5, 5], [5, 5]],
+    'kernel_pool': [[2, 2], [2, 2]],
+    'dim_hidden': [[50], [50]],
+    'nonlinearity': [F.relu, F.relu],
+    'covariance': ['fixed_diag', 'fixed_diag'],
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+}
+
+variational_params = {
+    'inference_mode': 'amortized',  # 'amortized', 'parametrized'
+    'channels': [[1, 10, 20], [1, 10, 20]],
+    'kernel_conv': [[5, 5], [5, 5]],
+    'kernel_pool': [[2, 2], [2, 2]],
+    'dim_hidden': [[50], [50]],
+    'dim_hidden_merged': [50],
+    'nonlinearity': [F.relu, F.relu],
+    'nonlinearity_merged': F.relu,
+    'covariance': 'fixed_diag',
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+}
+
+fit_params = {
+    'num_epoch': 100,
+    'batch_size': 2000,
+    'dim_latent': 3,
+    'prior_params': prior_params,
+    'factors_params': factors_params,
+    'auxiliary_params': auxiliary_params,
+    'variational_params': variational_params,
+    'ergodic': False,
+    'pct': 0.1
+}
+
+rpm = RPM(
+    observations=obs,
+    fit_params=fit_params,
+)
+
+rpm.fit(obs)

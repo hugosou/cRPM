@@ -3,6 +3,7 @@ from torch import matmul
 
 import numpy as np
 
+import flexible_multivariate_normal
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
     kl,
@@ -15,7 +16,7 @@ from utils import print_loss, get_minibatches
 from prior import GPPrior
 import recognition
 
-import _initializations
+import fast_initializations
 import _updates
 
 from utils import diagonalize
@@ -23,9 +24,10 @@ from utils import diagonalize
 # TODO: Freeze auxiliary
 # TODO: rotate to diagonalize covariances
 # TODO: Check Amortized RPGPFA
+# TODO: remove T !!
 
 
-class RPM(_initializations.Mixin, _updates.Mixin):
+class RPM(fast_initializations.Mixin, _updates.Mixin):
     """
     Recognition Parametrised Model (RPM)
 
@@ -67,19 +69,17 @@ class RPM(_initializations.Mixin, _updates.Mixin):
     def __init__(
             self,
             observations: Union[torch.Tensor, List[torch.tensor]],
-            observation_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of the Observations
-            inducing_locations: torch.Tensor = None,  # len_observation x dim_locations. Location of inducing points
             loss_tot: List = None,
             fit_params: Dict = None,
-            prior: GPPrior = None,
+            precision_chol_factors: torch.Tensor = None,
+            precision_chol_auxiliary: torch.Tensor = None,
             recognition_factors: recognition.Encoder = None,
             recognition_auxiliary: recognition.Encoder = None,
-            recognition_variational: recognition.Encoder = None,
 
     ):
 
         # Transform Observation in list if necessary
-        observations = [observations] \
+        observations = [observations]\
             if not (type(observations) is list) and not (type(observations) is tuple) else observations
 
         # Problem dimensions
@@ -93,12 +93,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         str_device = 'GPU' if torch.cuda.is_available() else 'CPU'
         print('RPM on ' + str_device + ' Observations on ' + str(self.device))
 
-        # Set Observation and Induction Locations
-        self.observation_locations = observation_locations
-        self.inducing_locations = inducing_locations
-        self.inducing_index = None
-        self._set_locations()
-
         # Fit / Config parameters
         self.fit_params = fit_params
 
@@ -106,44 +100,169 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         self.loss_tot = [] if loss_tot is None else loss_tot
 
         # Initialize Distributions Parametrization
-        self.prior = prior
+        self.precision_chol_factors = precision_chol_factors
+        self.precision_chol_auxiliary = precision_chol_auxiliary
         self.recognition_factors = recognition_factors
         self.recognition_auxiliary = recognition_auxiliary
-        self.recognition_variational = recognition_variational
         self._init_all(observations)
 
         # Sanity Checks
-        self._validate_model(observations)
+        assert all([i.shape[0] == self.num_observation for i in observations]), "Inconsistent number of observations"
+
+        # Init Forwarded
+        self.forwarded_factors = None
+        self.forwarded_auxiliary = None
 
         # Init Distributions and parameters
-        self.dist_prior = None
-        self.dist_delta = None
         self.dist_factors = None
-        self.dist_auxiliary = None
-        self.dist_marginals = None
         self.dist_variational = None
-        self.log_gamma = None
 
         with torch.no_grad():
             batch = self.batches[0][0]
             batched_observations = [obsi[batch] for obsi in observations] \
                 if len(batch) < self.num_observation else observations
-            self._update_all(batched_observations)
+            self._forward_all(batched_observations)
             self.loss_tot.append(self._get_loss().item())
 
-    def _update_all(self, observations):
+    def _forward_all(self, observations):
+        # TODO: When forwarding factors and auxiliary:
+        # Get mean
+        # Get precision chol. Build Precision. Be carefull with delta and not delta !!
+        self._forward_factors(observations)
+        self._forward_auxiliary(observations)
 
-        self._update_factors(observations)
-        self._update_variational(observations)
-        self._update_marginals()
-        self._update_auxiliary(observations)
-        self._update_delta()
+
+    def _forward_factors(self, observations):
+
+        _, natural2_prior = self.forwarded_prior
+
+        natural1_factors = torch.cat(
+            [
+                facti(obsi).unsqueeze(0)
+                for facti, obsi in zip(self.recognition_factors, observations)
+            ],
+            axis=0
+        )
+
+        natural2_factors = natural2_prior - torch.matmul(self.precision_chol_factors, self.precision_chol_factors.transpose(-1, -2))
+
+        self.forwarded_factors = [natural1_factors, natural2_factors]
+
+
+    def _forward_auxiliary(self, observations):
+
+        _, natural2_factors = self.forwarded_factors
+
+        natural1_auxiliary = torch.cat(
+            [
+                facti(obsi).unsqueeze(0)
+                for facti, obsi in zip(self.recognition_auxiliary, observations)
+            ],
+            axis=0
+        )
+
+        naturalaj2 = natural2_factors + torch.matmul(self.precision_chol_auxiliary, self.precision_chol_auxiliary.transpose(-1, -2))
+
+        self.forwarded_auxiliary = [natural1_auxiliary, naturalaj2]
+
+    def get_posteriors(self, observations):
+
+        with torch.no_grad():
+            self.forward_all(observations)
+            natural01, natural02 = self.forwarded_prior
+            naturalj1, naturalj2 = self.forwarded_auxiliary
+            naturalaj1, naturalaj2 = self.forwarded_auxiliary
+
+            naturalq1 = (natural01 + (naturalj1 - naturalaj1).sum(0)) / (1 + self.num_factors)
+            naturalq2 = (natural02 + (naturalj2 - naturalaj2).sum(0)) / (1 + self.num_factors)
+
+
+            distq = FlexibleMultivariateNormal(
+                naturalq1,
+                naturalq2,
+                init_natural=True,
+                init_cholesky=False,
+                store_suff_stat_mean=True,
+            )
+
+            distf = FlexibleMultivariateNormal(
+                naturalj1,
+                naturalj2,
+                init_natural=True,
+                init_cholesky=False,
+                store_suff_stat_mean=True,
+            )
+
+        return distq, distf
+
+    def _get_loss(self):
+
+        # Problem Dimensions
+        dim_latent = self.dim_latent
+        num_factors = self.num_factors
+        num_observation = self.num_observation_batch
+        normalizer = self.num_observation_batch * self.len_observation
+
+        # Constant tern
+        constant1 = 0.5 * np.log(2 * np.pi) * num_observation * dim_latent
+        constant2 = - 0.5 * num_observation * dim_latent * (1 + num_factors) * np.log(2 / (num_factors + 1))
+        constants = torch.tensor(constant1 + constant2, dtype=self.dtype, device=self.device)
+
+        # All natural parameters
+        _, natural2_prior = self.forwarded_prior
+        natural1_factors, natural2_factors = self.forwarded_factors
+        natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
+
+        # Delta natural for each factor ~ J x N x K
+        deltaj1 = natural1_factors - natural1_auxiliary
+        deltaj2 = natural2_factors - natural2_auxiliary
+
+        # Delta natural ~ N x K
+        delta1 = deltaj1.sum(dim=0)
+        delta2 = deltaj2.sum(dim=0)
+
+        # Variance of the first parameter
+        delta1_var = matmul(delta1.unsqueeze(-1), delta1.unsqueeze(-2)).sum(dim=0)
+
+        # Inverse naturals 2 ~ J x K x K
+        Id = torch.eye(self.dim_latent, dtype=self.dtype, device=self.device).unsqueeze(0)
+        deltaj2_inv = torch.linalg.inv(deltaj2 + 1e-8 * Id)
+        tildej2_inv = torch.linalg.inv(natural2_factors)
+
+        # Cholesky Decompose, Invert and Determinant
+        choldec = torch.linalg.cholesky(-(natural2_prior + delta2))
+        cholinv = - torch.cholesky_inverse(choldec)
+        choldet = 2 * torch.log(choldec.diagonal(dim1=-1, dim2=-2)).sum()
+
+        # Overal Log Normaliser
+        mahalanobis = - (cholinv * delta1_var).sum() / 4
+        volume = - num_observation * (num_factors + 1) * choldet / 2
+        log_normalizer = mahalanobis + volume
+
+        # Responsabilities tmp1 ~ J x M x 1 (M = N)
+        prod1 = torch.matmul((deltaj2_inv - tildej2_inv).unsqueeze(1), natural1_factors.unsqueeze(-1))
+        prod1 = torch.matmul(natural1_factors.unsqueeze(-2), prod1).squeeze(-1)
+
+        # Responsabilities tmp1 ~ J x M x N (M = N)
+        prod2 = torch.matmul(deltaj2_inv.unsqueeze(1), natural1_auxiliary.unsqueeze(-1))
+        prod2 = torch.matmul(natural1_factors.unsqueeze(2).unsqueeze(-2), prod2.unsqueeze(1)).squeeze(-1).squeeze(-1)
+        sj_mn = - (prod1 - 2 * prod2) / 4
+
+        # Log Gamma ~ J x N
+        log_numerator = sj_mn.diagonal(dim1=-1, dim2=-2)
+        log_denominator = torch.logsumexp(sj_mn, dim=1)
+        log_gamma = log_numerator - log_denominator
+        log_gamma = log_gamma.sum()
+
+        free_energy = (constants + log_normalizer + log_gamma) / normalizer
+
+        return - free_energy
 
     def fit(self, observations):
         """Fit the model to the observations"""
 
         # Transform Observation in list if necessary
-        observations = [observations] \
+        observations = [observations]\
             if not (type(observations) is list) and not (type(observations) is tuple) else observations
 
 
@@ -152,26 +271,22 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         num_epoch = fit_params['num_epoch']
 
         # Recognition Factors Parameters
-        factors_param = []
+        factors_param = [self.precision_chol_factors]
         for cur_factor in self.recognition_factors:
             factors_param += cur_factor.parameters()
 
         # Recognition Auxiliary Factors Parameters
-        auxiliary_param = []
+        auxiliary_param = [self.precision_chol_auxiliary]
         for cur_factor in self.recognition_auxiliary:
             auxiliary_param += cur_factor.parameters()
 
-        # Variational Parameters
-        variational_param = self.recognition_variational.parameters()
-
-        # Prior Parameters
-        prior_param = self.prior.parameters()
+        # # Prior Parameters TODO: add the gamma priors ?
+        # prior_param = self.prior.parameters()
 
         all_params = [
-            [prior_param, fit_params['prior_params']],
+            #[prior_param, fit_params['prior_params']],
             [factors_param, fit_params['factors_params']],
             [auxiliary_param, fit_params['auxiliary_params']],
-            [variational_param, fit_params['variational_params'],]
         ]
 
         all_optimizers = [
@@ -199,7 +314,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                     if len(batch) < self.num_observation else observations
 
                 # Forward pass
-                self._update_all(batched_observations)
+                self._forward_all(batched_observations)
 
                 # Loss
                 loss = self._get_loss()
@@ -231,7 +346,7 @@ class RPM(_initializations.Mixin, _updates.Mixin):
                 pct=self.fit_params['pct']
             )
 
-    def _get_loss(self):
+    def _get_loss_old(self):
 
         # Log-Gamma term ~ J x N x T -> sum to scalar
         log_gamma = self.log_gamma.sum()
@@ -245,9 +360,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         # - Loss
         normalizer = self.num_observation_batch * self.len_observation
         free_energy = (log_gamma - KLmarginals - KLprior) / normalizer
-
-        return - free_energy
-
 
 
 
@@ -418,66 +530,6 @@ class RPM(_initializations.Mixin, _updates.Mixin):
         self._init_prior()
         self._init_factors(observations)
         self._init_auxiliary(observations)
-        self._init_variational(observations)
 
-    def _set_locations(self):
-        """Handle observation and inducing Locations"""
-
-        # Default: observation location 1D and ordered from 0 to 1
-        self.observation_locations = torch.linspace(
-            0, 1, self.len_observation, device=self.device, dtype=self.dtype
-        ).unsqueeze(-1) if self.observation_locations is None else self.observation_locations
-
-        # Default: inducing points at every observed location
-        self.inducing_locations = self.observation_locations \
-            if self.inducing_locations is None else self.inducing_locations
-
-        # Number of Inducting Points
-        self.num_inducing_points = self.inducing_locations.shape[0]
-
-        # Distance: Observation - Inducing Locations
-        ind_dist = ((self.inducing_locations.unsqueeze(0) - self.observation_locations.unsqueeze(1)) ** 2).sum(-1)
-        _, loc_min = ind_dist.min(dim=0)
-
-        # For each inducing point, store closest observed location
-        self.inducing_index = loc_min
-
-    def _validate_model(self, observations):
-        """A range of Sanity Checks"""
-
-        # Consistent observations shape
-        assert all([i.shape[0] == self.num_observation for i in observations]), "Inconsistent number of observations"
-        assert all([i.shape[1] == self.len_observation for i in observations]), "Inconsistent length of observations"
-
-        # Some modeling choices might conflict
-        inference_mode = self.fit_params['variational_params']['inference_mode']
-        if inference_mode == 'amortized':
-
-            # Amortized Time Series Modeling
-            if self.len_observation > 1:
-
-                # Distance between observations and inducing locations
-                loc_ind = self.inducing_locations
-                loc_obs = self.observation_locations[self.inducing_index]
-                loc_dist = ((loc_ind - loc_obs) ** 2).sum(dim=-1).max()
-
-                assert loc_dist < 1e-6, \
-                    ('Each amortised Inducing Locations should match one observation. '
-                     'Fix: Redefine Locations or use parametrized inference')
-
-                assert 'diag' in self.fit_params['variational_params']['covariance'], \
-                    ('Full Covariance incompatible with Amortised RP-GPFA.  '
-                     'Fix: Use diagonal covariance or parametrized inference.')
-
-        elif inference_mode == 'parametrized':
-
-            assert self.fit_params['variational_params']['covariance'] == 'full', \
-                ('Parametrized inference must use full covariance. '
-                 'Fix: Modify variational_params or use amortized inference')
-
-            assert self.len_observation > 1, \
-                ('Full parametrisation not recommended for RP-FA. '
-                 'Fix: Use Amortized Inference.')
-        else:
-            raise NotImplementedError()
-
+        self._init_precision_factors()
+        self._init_precision_auxiliary()
