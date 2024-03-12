@@ -227,16 +227,14 @@ class Mixin:
 
 
         diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-        chol = torch.zeros(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2), dtype=self.dtype)
-        chol[..., diag_idx] = -np.sqrt(0.5)
-        chol_precision = torch.nn.Parameter(vector_to_tril(chol)).to(self.device.index)
-        self.precision_chol_factors = chol_precision
-
+        chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)) )
+        chol[:, diag_idx] = -np.sqrt(0.5)
+        self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype).to(self.device)
+        
     def _init_precision_auxiliary(self):
         diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-        chol = torch.zeros(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2), dtype=self.dtype)
-        chol[..., diag_idx] = -np.sqrt(0.5)
-        chol_precision = torch.nn.Parameter(vector_to_tril(chol)).to(self.device.index)
-        self.precision_chol_auxiliary = chol_precision
+        chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
+        chol[:, diag_idx] = -np.sqrt(0.5)
+        self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype = self.dtype).to(self.device)
 
 

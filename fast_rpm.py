@@ -6,6 +6,7 @@ import numpy as np
 import flexible_multivariate_normal
 from flexible_multivariate_normal import (
     FlexibleMultivariateNormal,
+    vector_to_tril,
     kl,
     flexible_kl,
     get_log_normalizer)
@@ -71,8 +72,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             observations: Union[torch.Tensor, List[torch.tensor]],
             loss_tot: List = None,
             fit_params: Dict = None,
-            precision_chol_factors: torch.Tensor = None,
-            precision_chol_auxiliary: torch.Tensor = None,
+            precision_chol_vec_factors: torch.Tensor = None,
+            precision_chol_vec_auxiliary: torch.Tensor = None,
             recognition_factors: recognition.Encoder = None,
             recognition_auxiliary: recognition.Encoder = None,
 
@@ -100,12 +101,12 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self.loss_tot = [] if loss_tot is None else loss_tot
 
         # Initialize Distributions Parametrization
-        self.precision_chol_factors = precision_chol_factors
-        self.precision_chol_auxiliary = precision_chol_auxiliary
+        self.precision_chol_vec_factors = precision_chol_vec_factors
+        self.precision_chol_vec_auxiliary = precision_chol_vec_auxiliary
         self.recognition_factors = recognition_factors
         self.recognition_auxiliary = recognition_auxiliary
         self._init_all(observations)
-
+        
         # Sanity Checks
         assert all([i.shape[0] == self.num_observation for i in observations]), "Inconsistent number of observations"
 
@@ -144,7 +145,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             axis=0
         )
 
-        natural2_factors = natural2_prior - torch.matmul(self.precision_chol_factors, self.precision_chol_factors.transpose(-1, -2))
+        natural2_factors_tril = vector_to_tril(self.precision_chol_vec_factors)
+        natural2_factors = natural2_prior - torch.matmul(natural2_factors_tril, natural2_factors_tril.transpose(-1, -2))
 
         self.forwarded_factors = [natural1_factors, natural2_factors]
 
@@ -161,14 +163,15 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             axis=0
         )
 
-        naturalaj2 = natural2_factors + torch.matmul(self.precision_chol_auxiliary, self.precision_chol_auxiliary.transpose(-1, -2))
+        natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
+        naturalaj2 = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
 
         self.forwarded_auxiliary = [natural1_auxiliary, naturalaj2]
 
     def get_posteriors(self, observations):
 
         with torch.no_grad():
-            self.forward_all(observations)
+            self._forward_all(observations)
             natural01, natural02 = self.forwarded_prior
             naturalj1, naturalj2 = self.forwarded_auxiliary
             naturalaj1, naturalaj2 = self.forwarded_auxiliary
@@ -226,7 +229,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Inverse naturals 2 ~ J x K x K
         Id = torch.eye(self.dim_latent, dtype=self.dtype, device=self.device).unsqueeze(0)
-        deltaj2_inv = torch.linalg.inv(deltaj2 + 1e-8 * Id)
+        deltaj2_inv = torch.linalg.inv(deltaj2 - 1e-8 * Id)
         tildej2_inv = torch.linalg.inv(natural2_factors)
 
         # Cholesky Decompose, Invert and Determinant
@@ -271,15 +274,15 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         num_epoch = fit_params['num_epoch']
 
         # Recognition Factors Parameters
-        factors_param = [self.precision_chol_factors]
+        factors_param = [self.precision_chol_vec_factors]
         for cur_factor in self.recognition_factors:
             factors_param += cur_factor.parameters()
 
         # Recognition Auxiliary Factors Parameters
-        auxiliary_param = [self.precision_chol_auxiliary]
+        auxiliary_param = [self.precision_chol_vec_auxiliary]
         for cur_factor in self.recognition_auxiliary:
             auxiliary_param += cur_factor.parameters()
-
+            
         # # Prior Parameters TODO: add the gamma priors ?
         # prior_param = self.prior.parameters()
 
