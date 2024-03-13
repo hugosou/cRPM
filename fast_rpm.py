@@ -1,5 +1,5 @@
 import torch
-from torch import matmul
+from torch import matmul, inference_mode
 
 import numpy as np
 
@@ -26,6 +26,8 @@ from utils import diagonalize
 # TODO: rotate to diagonalize covariances
 # TODO: Check Amortized RPGPFA
 # TODO: remove T !!
+# MAKE SURE PARAMETERS ARE BEING PTIMIZED !
+# TODO: Modif description
 
 
 class RPM(fast_initializations.Mixin, _updates.Mixin):
@@ -133,6 +135,144 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._forward_auxiliary(observations)
 
 
+        # #TODO: what follows is temporary and should be removed !
+        # print('TMP')
+        #
+        # natural1_prior, natural2_prior = self.forwarded_prior
+        # natural1_factor, natural2_factor = self.forwarded_factors
+        # natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
+        #
+        # natural2_factor = natural2_factor.unsqueeze(1).repeat(1, natural1_factor.shape[1], 1, 1)
+        # natural2_auxiliary = natural2_auxiliary.unsqueeze(1).repeat(1, natural1_auxiliary.shape[1], 1, 1)
+        #
+        # natural1_prior = natural1_prior.unsqueeze(0).unsqueeze(0)
+        # natural2_prior = natural2_prior.unsqueeze(0).unsqueeze(0)
+        #
+        # natural1_variational = (natural1_prior + (natural1_factor - natural1_auxiliary).sum(dim=0)) / (self.num_factors + 1)
+        # natural2_variational = (natural2_prior + (natural2_factor - natural2_auxiliary).sum(dim=0)) / (self.num_factors + 1)
+        #
+        # self.dist_variational = FlexibleMultivariateNormal(
+        #     natural1_variational,
+        #     natural2_variational,
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # self.dist_factors = FlexibleMultivariateNormal(
+        #     natural1_factor,
+        #     natural2_factor,
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # self.dist_auxiliary = FlexibleMultivariateNormal(
+        #     natural1_auxiliary,
+        #     natural2_auxiliary,
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # self.dist_prior = FlexibleMultivariateNormal(
+        #     natural1_prior,
+        #     natural2_prior,
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # self._update_delta_TMP()
+        # self.KLMARGINAL = self._kl_marginals()
+        # self.KLPRIOR =self._kl_prior()
+        #
+        # dist_prior_kl = FlexibleMultivariateNormal(
+        #     natural1_prior.repeat(1, natural1_variational.shape[1], 1),
+        #     natural2_prior.repeat(1, natural1_variational.shape[1], 1, 1),
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # dist_ratios_kl = FlexibleMultivariateNormal(
+        #     natural1_factor - natural1_auxiliary,
+        #     natural2_factor - natural2_auxiliary,
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # dist_variational_kl = FlexibleMultivariateNormal(
+        #     natural1_variational.repeat(self.num_factors, 1, 1),
+        #     natural2_variational.repeat(self.num_factors, 1, 1, 1),
+        #     init_natural=True,
+        #     init_cholesky=False,
+        #     store_suff_stat_mean=True,
+        # )
+        #
+        # prior_kl_alt = flexible_kl(self.dist_variational, dist_prior_kl).sum()
+        # margi_kl_alt = flexible_kl(dist_variational_kl, dist_ratios_kl).sum()
+        #
+        # phi1 = self.dist_variational.log_normalizer.sum() * (1 + self.num_factors)
+        # phi_prior = self.dist_prior.log_normalizer[0,0]
+        # phi_delta = self.dist_delta.log_normalizer.diagonal(dim1=-1, dim2=-2).sum(dim=0)
+        # phi2 = (phi_prior + phi_delta).sum()
+        #
+        # old = -(prior_kl_alt + margi_kl_alt)
+        # new = (phi1 - phi2)
+        #
+        # self.phi1 = phi1
+        # self.phi2 = phi2
+        #
+        # print(0)
+
+
+
+    def _update_delta_TMP(self):
+        """
+        Build all the ration distributions (factors - factors_tilde)
+        """
+
+        # Natural Parameters of the factors ~ J x 1 x N x T x K (x K)
+        factors_natural1 = self.dist_factors.natural1.unsqueeze(1)
+        factors_natural2 = self.dist_factors.natural2.unsqueeze(1)
+        factors_log_normaliser = self.dist_factors.log_normalizer.unsqueeze(1)
+
+        # Pseudo Natural Parameters of the auxiliary factors ~ J x N x 1 x T x K (x K)
+        factors_tilde_natural1 = self.dist_auxiliary.natural1.unsqueeze(2)
+        factors_tilde_natural2 = self.dist_auxiliary.natural2.unsqueeze(2)
+
+        # eta_m - eta_tilde_n ~ J x N x N x T x K (x K)
+        delta_natural1 = factors_natural1 - factors_tilde_natural1
+        delta_natural2 = factors_natural2 - factors_tilde_natural2
+
+        # fhat in the paper
+        self.dist_delta = FlexibleMultivariateNormal(
+            delta_natural1,
+            delta_natural2,
+            init_natural=True,
+            init_cholesky=False,
+            store_suff_stat_mean=True
+        )
+
+        # Ratio of log-nomaliser differences ~ J x N x N x T
+        delta_log_normalizer = self.dist_delta.log_normalizer - factors_log_normaliser
+
+        # In the ergodic cae, the sum is over T and N
+        if self.fit_params['ergodic']:
+            log_weights = delta_log_normalizer - torch.logsumexp(delta_log_normalizer, dim=(2, 3), keepdim=True)
+        else:
+            log_weights = delta_log_normalizer - torch.logsumexp(delta_log_normalizer, dim=2, keepdim=True)
+
+        # log Gamma ~ J x N x T
+        self.log_gamma = log_weights.diagonal(dim1=1, dim2=2)
+
+
+
+
+
+
     def _forward_factors(self, observations):
 
         _, natural2_prior = self.forwarded_prior
@@ -156,10 +296,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         _, natural2_factors = self.forwarded_factors
 
         natural1_auxiliary = torch.cat(
-            [
-                facti(obsi).unsqueeze(0)
-                for facti, obsi in zip(self.recognition_auxiliary, observations)
-            ],
+            [facti(obsi).unsqueeze(0) for facti, obsi in zip(self.recognition_auxiliary, observations)],
             axis=0
         )
 
@@ -178,7 +315,6 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             naturalq1 = (natural01 + (naturalj1 - naturalaj1).sum(0)) / (1 + self.num_factors)
             naturalq2 = (natural02 + (naturalj2 - naturalaj2).sum(0)) / (1 + self.num_factors)
-
 
             distq = FlexibleMultivariateNormal(
                 naturalq1,
@@ -206,50 +342,79 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         num_observation = self.num_observation_batch
         normalizer = self.num_observation_batch * self.len_observation
 
-        # Constant tern
-        constant1 = 0.5 * np.log(2 * np.pi) * num_observation * dim_latent
-        constant2 = - 0.5 * num_observation * dim_latent * (1 + num_factors) * np.log(2 / (num_factors + 1))
-        constants = torch.tensor(constant1 + constant2, dtype=self.dtype, device=self.device)
-
-        # All natural parameters
+        # Natural parameters
         _, natural2_prior = self.forwarded_prior
         natural1_factors, natural2_factors = self.forwarded_factors
         natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
 
-        # Delta natural for each factor ~ J x N x K
-        deltaj1 = natural1_factors - natural1_auxiliary
-        deltaj2 = natural2_factors - natural2_auxiliary
+        # Delta natural1 for each factor ~ J x N x K
+        delta_natural1_jn = natural1_factors - natural1_auxiliary
 
-        # Delta natural ~ N x K
-        delta1 = deltaj1.sum(dim=0)
-        delta2 = deltaj2.sum(dim=0)
+        # ~ N x K
+        delta_natural1_n = delta_natural1_jn.sum(0)
 
-        # Variance of the first parameter
-        delta1_var = matmul(delta1.unsqueeze(-1), delta1.unsqueeze(-2)).sum(dim=0)
+        # Delta natural2 for each factor ~ J x K x K
+        delta_natural2_j = natural2_factors - natural2_auxiliary
 
-        # Inverse naturals 2 ~ J x K x K
-        Id = torch.eye(self.dim_latent, dtype=self.dtype, device=self.device).unsqueeze(0)
-        deltaj2_inv = torch.linalg.inv(deltaj2 - 1e-8 * Id)
-        tildej2_inv = torch.linalg.inv(natural2_factors)
+        # Delta natural2 ~ K x K
+        delta_natural2 = delta_natural2_j.sum(dim=0)
 
-        # Cholesky Decompose, Invert and Determinant
-        choldec = torch.linalg.cholesky(-(natural2_prior + delta2))
-        cholinv = - torch.cholesky_inverse(choldec)
-        choldet = 2 * torch.log(choldec.diagonal(dim1=-1, dim2=-2)).sum()
+        # ~ K x K
+        var_natural1 = matmul(delta_natural1_n.unsqueeze(-1), delta_natural1_n.unsqueeze(-2)).sum(dim=0)
 
-        # Overal Log Normaliser
-        mahalanobis = - (cholinv * delta1_var).sum() / 4
-        volume = - num_observation * (num_factors + 1) * choldet / 2
-        log_normalizer = mahalanobis + volume
+        # ~ J x K x K
+        var_natural1_j = matmul(delta_natural1_jn.unsqueeze(-1), delta_natural1_jn.unsqueeze(-2)).sum(dim=1)
+
+        # Invert and Determinent ~ K x K and 1 x 1
+        delta2_inv, delta2_logdet = _chol_inv_det(delta_natural2 + natural2_prior)
+
+        # Invert and Determinent ~ J x K x K and J x 1 x 1
+        delta2_inv_j, delta2_logdet_j = _chol_inv_det(delta_natural2_j)
+
+        # ~ J x K x K
+        nautral2_inv_j, _ = _chol_inv_det(natural2_factors)
+
+        # Log Normalizer of the average
+        constant1 = torch.tensor(
+            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi * (1 + num_factors))
+        )
+        logdet1 = - 0.5 * num_observation * (1 + num_factors) * delta2_logdet
+        trace1 = - matmul(delta2_inv, var_natural1).sum() / 4
+        phi1 = constant1 + logdet1 + trace1
+
+        # Average Of the log normalizer
+        constant2 = torch.tensor(
+            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi)
+        )
+        logdet2 = - 0.5 * (1 + num_factors) * (
+            num_observation * torch.log(torch.linalg.det(-natural2_prior)) + delta2_logdet_j.sum()
+        )
+        trace2 = - matmul(delta2_inv_j, var_natural1_j).sum() / 4
+        phi2 = constant2 + logdet2 + trace2
+
+        # KL normalizer
+        kl_normalizer = phi1 - phi2
+
+        # print('Classic      ' + str(self.phi1))
+        # print('New approach ' + str(phi1))
+        # print('Diff         ' + str( (phi1 - self.phi1) / self.phi1))
+        #
+        # print('Classic      ' + str(self.phi2))
+        # print('New approach ' + str(phi2))
+        # print('Diff         ' + str( (phi2 - self.phi2) / self.phi2))
+        #
+        # print('  ')
+        # print('Classic ' + str(self.phi1 - self.phi2))
+        # print('New approach ' + str(phi1 - phi2))
 
         # Responsabilities tmp1 ~ J x M x 1 (M = N)
-        prod1 = torch.matmul((deltaj2_inv - tildej2_inv).unsqueeze(1), natural1_factors.unsqueeze(-1))
+        prod1 = torch.matmul((delta2_inv_j - nautral2_inv_j).unsqueeze(1), natural1_factors.unsqueeze(-1))
         prod1 = torch.matmul(natural1_factors.unsqueeze(-2), prod1).squeeze(-1)
 
         # Responsabilities tmp1 ~ J x M x N (M = N)
-        prod2 = torch.matmul(deltaj2_inv.unsqueeze(1), natural1_auxiliary.unsqueeze(-1))
+        prod2 = torch.matmul(delta2_inv_j.unsqueeze(1), natural1_auxiliary.unsqueeze(-1))
         prod2 = torch.matmul(natural1_factors.unsqueeze(2).unsqueeze(-2), prod2.unsqueeze(1)).squeeze(-1).squeeze(-1)
-        sj_mn = - (prod1 - 2 * prod2) / 4
+        sj_mn = - prod1 / 4 + prod2 / 2
 
         # Log Gamma ~ J x N
         log_numerator = sj_mn.diagonal(dim1=-1, dim2=-2)
@@ -257,7 +422,17 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         log_gamma = log_numerator - log_denominator
         log_gamma = log_gamma.sum()
 
-        free_energy = (constants + log_normalizer + log_gamma) / normalizer
+        free_energy = (kl_normalizer + log_gamma) / normalizer
+
+        # old_klprior = self.KLPRIOR.sum()
+        # old_klmarg  = self.KLMARGINAL.sum()
+        # alt_klall = -(old_klprior + old_klmarg)
+        #
+        # #new_log_norm = kl_normalizer
+        # alt_log_norm = self.dist_variational.log_normalizer.sum() * (self.num_factors + 1)
+        #
+        # new_log_gamma = log_gamma
+        # alt_log_gamma = self.log_gamma.sum()
 
         return - free_energy
 
@@ -372,13 +547,13 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         num_observation = self.num_observation_batch  # num_observation = self.num_observation
 
         # Natural Parameter from the marginal ~ 1 x N x T x K (x K)
-        variational = self.dist_marginals
-        variational_natural1 = variational.natural1.unsqueeze(0)
-        variational_natural2 = variational.natural2.unsqueeze(0)
-        variational_log_normalizer = variational.log_normalizer.unsqueeze(0)
+        variational = self.dist_variational
+        variational_natural1 = variational.natural1
+        variational_natural2 = variational.natural2
+        variational_log_normalizer = variational.log_normalizer
         variational_suff_stat = [
-            variational.suff_stat_mean[0].unsqueeze(0),
-            variational.suff_stat_mean[1].unsqueeze(0)
+            variational.suff_stat_mean[0],
+            variational.suff_stat_mean[1]
         ]
 
         # Grasp only the m = n distribution for KL estimation
@@ -424,94 +599,27 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
                     KL div      size: N x K
         """
 
-        # Amortized or Parametrized variational inference
-        inference_mode = self.fit_params['variational_params']['inference_mode']
 
-        # Prior's Mean and Variance: size ~ K x M x (x M)
-        prior_mean = self.prior.mean(self.inducing_locations, self.inducing_locations)
-        prior_vari = self.prior.covariance(self.inducing_locations, self.inducing_locations)
+        natural1 = self.dist_variational.natural1.squeeze(0)
+        natural2 = self.dist_variational.natural2.squeeze(0)
+        log_normalizer = self.dist_variational.log_normalizer.squeeze(0)
+        suff_stat = [
+            self.dist_variational.suff_stat_mean[0].squeeze(0),
+            self.dist_variational.suff_stat_mean[1].squeeze(0)
+        ]
 
-        if inference_mode == 'amortized':
+        natural01 = self.dist_prior.natural1.squeeze(0).repeat(natural1.shape[0], 1)
+        natural02 = self.dist_prior.natural2.squeeze(0).repeat(natural1.shape[0], 1, 1)
+        log_normalizer0 = self.dist_prior.log_normalizer.squeeze(0).repeat(natural1.shape[0])
 
-            # To size ~ 1 x K x M x (x M)
-            prior_mean = prior_mean.unsqueeze(0)
-            prior_vari = prior_vari.unsqueeze(0)
-            # prior_nat1 = prior_nat1.unsqueeze(0)
-
-            # Amortized Variational Parameters: size N x M x K ( x K)
-            variational_natural = (self.dist_variational.natural1, self.dist_variational.natural2)
-            variational_suffstat = self.dist_variational.suff_stat_mean
-            variational_log_normalizer = self.dist_variational.log_normalizer
-
-            if self.num_inducing_points == 1:
-                # Not a time series (M = 1):
-                # Reshape Prior distribution to 1 x 1 x K ( x K) by leveraging M = 1
-
-                # Prior's Natural Parameters (reshape only works since M = 1)
-                prior_mean = prior_mean.reshape(1, 1, self.dim_latent)
-                prior_vard = prior_vari.reshape(1, 1, self.dim_latent)
-                prior_nat1 = prior_mean / prior_vard
-                prior_nat2 = - 0.5 * diagonalize(1 / (prior_vard + 1e-6))
-                prior_natural = (prior_nat1, prior_nat2)
-
-                # Prior Log-Normalizer
-                prior_log_normalizer = get_log_normalizer(prior_mean, prior_vard, prior_natural[0])
-
-            else:
-                # Time series (M > 1)
-                # Reshape variational distribution to N x K x M ( x M) by leveraging diagonal over K
-                variational_nat1 = variational_natural[0].permute(0, 2, 1)
-                variational_nat2 = variational_natural[1].diagonal(dim1=-1, dim2=-2).permute(0, 2, 1)
-                variational_vard = - 0.5 * 1 / (variational_nat2 - 1e-6)
-                variational_vari = diagonalize(variational_vard)
-                variational_mean = variational_vard * variational_nat1
-                variational_nat2 = diagonalize(variational_nat2)
-                variational_log_normalizer = get_log_normalizer(variational_mean, variational_vard, variational_nat1)
-                variational_natural = (variational_nat1, variational_nat2)
-                variational_suffstat = (
-                    variational_mean,
-                    variational_vari + matmul(variational_mean.unsqueeze(-1), variational_mean.unsqueeze(-2))
-                )
-
-                dist_prior = FlexibleMultivariateNormal(
-                    prior_mean,
-                    prior_vari,
-                    init_natural=False,
-                    init_cholesky=False,
-                )
-
-                prior_natural = (dist_prior.natural1, dist_prior.natural2)
-                prior_log_normalizer = dist_prior.log_normalizer
-
-            # KL(q(U) || p(U)) ~ N x 1 or N x K
-            KL = kl(
-                variational_natural,
-                prior_natural,
-                variational_log_normalizer,
-                prior_log_normalizer,
-                variational_suffstat
-            )
-
-        elif inference_mode == 'parametrized':
-
-            # Build Prior Distribution
-            dist_prior = FlexibleMultivariateNormal(
-                prior_mean,
-                prior_vari,
-                init_natural=False,
-                init_cholesky=False,
-            )
-
-            # KL(q(U) || p(U)) ~ N x K
-            KL = flexible_kl(
-                self.dist_variational,
-                dist_prior,
-                repeat1=[0, 1],
-                repeat2=[1]
-            )
-
-        else:
-            raise NotImplementedError()
+        # KL(q(U) || p(U)) ~ N x 1 or N x K
+        KL = kl(
+            [natural1, natural2],
+            [natural01, natural02],
+            log_normalizer,
+            log_normalizer0,
+            suff_stat
+        )
 
         return KL
 
@@ -536,3 +644,10 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         self._init_precision_factors()
         self._init_precision_auxiliary()
+
+def _chol_inv_det(nsd):
+    chol = torch.linalg.cholesky(-nsd)
+    inv = - torch.cholesky_inverse(chol)
+    det = 2 * torch.log(chol.diagonal(dim1=-1, dim2=-2)).sum(dim=-1)
+
+    return inv, det

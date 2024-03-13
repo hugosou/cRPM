@@ -30,7 +30,7 @@ test_data = datasets.MNIST(
 )
 
 # Random seeds
-torch.manual_seed(2)
+#torch.manual_seed(0)
 
 # Number of Conditionally independent Factors
 num_factors = 2
