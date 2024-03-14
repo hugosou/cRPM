@@ -131,3 +131,11 @@ def diagonalize(z):
     Z = torch.zeros((*z.shape, z.shape[-1]), device=z.device, dtype=z.dtype)
     Z[..., range(z.shape[-1]), range(z.shape[-1])] = z
     return Z
+
+
+def chol_inv_det(nsd):
+    chol = torch.linalg.cholesky(-nsd)
+    inv = - torch.cholesky_inverse(chol)
+    det = 2 * torch.log(chol.diagonal(dim1=-1, dim2=-2)).sum(dim=-1)
+
+    return inv, det
