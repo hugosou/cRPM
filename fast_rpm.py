@@ -300,21 +300,35 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         natural2_factors = natural2_prior - torch.matmul(natural2_factors_tril, natural2_factors_tril.transpose(-1, -2))
 
         self.forwarded_factors = [natural1_factors, natural2_factors]
+        
+        
+    
 
 
     def _forward_auxiliary(self, observations):
 
-        _, natural2_factors = self.forwarded_factors
+        
+        natural1_prior, natural2_prior = self.forwarded_prior
+        natural1_factors, natural2_factors = self.forwarded_factors
+        natural1_auxiliary = (natural1_prior.unsqueeze(0).unsqueeze(0) - natural1_factors).sum(dim=0, keepdims=True).repeat(self.num_factors, 1, 1)
+        natural2_auxiliary = (natural2_prior.unsqueeze(0) - natural2_factors).sum(dim=0,keepdims=True).repeat(self.num_factors, 1, 1)
+        self.forwarded_auxiliary = [natural1_auxiliary, natural2_auxiliary]
+        
+            
+            
+            
+        # Below is the base
+#         _, natural2_factors = self.forwarded_factors
 
-        natural1_auxiliary = torch.cat(
-            [facti(obsi).unsqueeze(0) for facti, obsi in zip(self.recognition_auxiliary, observations)],
-            axis=0
-        )
+#         natural1_auxiliary = torch.cat(
+#             [facti(obsi).unsqueeze(0) for facti, obsi in zip(self.recognition_auxiliary, observations)],
+#             axis=0
+#         )
 
-        natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
-        naturalaj2 = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
+#         natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
+#         naturalaj2 = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
 
-        self.forwarded_auxiliary = [natural1_auxiliary, naturalaj2]
+        #self.forwarded_auxiliary = [natural1_auxiliary, naturalaj2]
 
     def get_posteriors(self, observations):
 
