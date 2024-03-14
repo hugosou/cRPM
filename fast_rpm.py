@@ -135,7 +135,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._forward_auxiliary(observations)
 
 
-        # #TODO: what follows is temporary and should be removed !
+        # # #TODO: what follows is temporary and should be removed !
         # print('TMP')
         #
         # natural1_prior, natural2_prior = self.forwarded_prior
@@ -157,6 +157,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # self.dist_factors = FlexibleMultivariateNormal(
@@ -165,6 +166,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # self.dist_auxiliary = FlexibleMultivariateNormal(
@@ -173,6 +175,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # self.dist_prior = FlexibleMultivariateNormal(
@@ -181,6 +184,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # self._update_delta_TMP()
@@ -193,6 +197,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # dist_ratios_kl = FlexibleMultivariateNormal(
@@ -201,6 +206,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # dist_variational_kl = FlexibleMultivariateNormal(
@@ -209,21 +215,26 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     init_natural=True,
         #     init_cholesky=False,
         #     store_suff_stat_mean=True,
+        #     jitter=0.0,
         # )
         #
         # prior_kl_alt = flexible_kl(self.dist_variational, dist_prior_kl).sum()
         # margi_kl_alt = flexible_kl(dist_variational_kl, dist_ratios_kl).sum()
         #
         # phi1 = self.dist_variational.log_normalizer.sum() * (1 + self.num_factors)
-        # phi_prior = self.dist_prior.log_normalizer[0,0]
+        # phi_prior = self.dist_prior.log_normalizer[0, 0]
         # phi_delta = self.dist_delta.log_normalizer.diagonal(dim1=-1, dim2=-2).sum(dim=0)
         # phi2 = (phi_prior + phi_delta).sum()
+        # phi21 = phi_prior * self.num_observation
+        # phi22 = phi_delta.sum()
         #
         # old = -(prior_kl_alt + margi_kl_alt)
         # new = (phi1 - phi2)
         #
         # self.phi1 = phi1
         # self.phi2 = phi2
+        # self.phi21 = phi21
+        # self.phi22 = phi22
         #
         # print(0)
 
@@ -316,6 +327,9 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             naturalq1 = (natural01 + (naturalj1 - naturalaj1).sum(0)) / (1 + self.num_factors)
             naturalq2 = (natural02 + (naturalj2 - naturalaj2).sum(0)) / (1 + self.num_factors)
 
+            naturalq2 = naturalq2.unsqueeze(0).repeat(naturalq1.shape[0], 1, 1)
+            naturalj2 = naturalj2.unsqueeze(1).repeat(1, naturalaj1.shape[1], 1, 1)
+
             distq = FlexibleMultivariateNormal(
                 naturalq1,
                 naturalq2,
@@ -379,7 +393,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi * (1 + num_factors))
         )
         logdet1 = - 0.5 * num_observation * (1 + num_factors) * delta2_logdet
-        trace1 = - matmul(delta2_inv, var_natural1).sum() / 4
+        trace1 = - (delta2_inv * var_natural1).sum() / 4
         phi1 = constant1 + logdet1 + trace1
 
         # Average Of the log normalizer
@@ -389,23 +403,80 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         logdet2 = - 0.5 * (1 + num_factors) * (
             num_observation * torch.log(torch.linalg.det(-natural2_prior)) + delta2_logdet_j.sum()
         )
-        trace2 = - matmul(delta2_inv_j, var_natural1_j).sum() / 4
+        trace2 = - (delta2_inv_j * var_natural1_j).sum() / 4
         phi2 = constant2 + logdet2 + trace2
+
+
 
         # KL normalizer
         kl_normalizer = phi1 - phi2
 
+        # print('Phi 1')
         # print('Classic      ' + str(self.phi1))
         # print('New approach ' + str(phi1))
         # print('Diff         ' + str( (phi1 - self.phi1) / self.phi1))
+        # print('')
         #
+        # print('Phi 2')
         # print('Classic      ' + str(self.phi2))
         # print('New approach ' + str(phi2))
         # print('Diff         ' + str( (phi2 - self.phi2) / self.phi2))
+        # print('')
         #
-        # print('  ')
+        # print('Overall')
         # print('Classic ' + str(self.phi1 - self.phi2))
         # print('New approach ' + str(phi1 - phi2))
+        # print('Diff         ' + str((self.phi1 - self.phi2) - (phi1 - phi2)))
+        #
+
+
+
+        # phi_prior = self.dist_prior.log_normalizer[0, 0]
+        # constant = torch.tensor(
+        #     0.5 * dim_latent * np.log(np.pi)
+        # )
+        # det = -0.5 * torch.log(torch.linalg.det(-self.dist_prior.natural2.squeeze()))
+        # trace = 0
+        # phi_prior_alt = constant + det + trace
+        #
+
+
+
+
+        # phi_delta = self.dist_delta.log_normalizer.diagonal(dim1=-1, dim2=-2)
+        # constant = torch.tensor(
+        #     0.5 * dim_latent * np.log(np.pi)
+        # )
+        # det = -0.5 * torch.log(torch.linalg.det(-self.dist_delta.natural2.diagonal(dim1=1, dim2=-2)))
+        # var = matmul(self.dist_delta.natural1.diagonal(dim1=-1, dim2=-2).unsqueeze(-1), self.dist_delta.natural1.diagonal(dim1=-1, dim2=-2).unsqueeze(-2) )
+        # trace = - (torch.linalg.inv(self.dist_delta.natural2.diagonal(dim1=1, dim2=-2)) * var).sum(dim=(-1, -2)) / 4
+        # phi_delta_alt = constant + det + trace
+        #
+        # (phi_delta.su - phi_delta_alt).abs().max()
+        #
+        # print('problems here')
+        # n1 = self.dist_delta.natural1[0, 0, 0]
+        # n2 = self.dist_delta.natural2[0, 0, 0]
+        # phiphi = self.dist_delta.log_normalizer[0, 0, 0]
+        # constant = torch.tensor(
+        #     0.5 * dim_latent * np.log(np.pi)
+        # )
+        # det = - 0.5 * torch.log(torch.linalg.det(- n2))
+        # trace = -(torch.linalg.inv(n2) * matmul(n1.unsqueeze(-1), n1.unsqueeze(-2))).sum(dim=(-1, -2)) / 4
+        # phiphi_alt = det + constant + trace
+
+        #
+        #
+        #
+        # phi2_nnn = phi2
+        # phi2_old = num_observation * phi_prior + phi_delta.sum()
+        # phi2_alt = num_observation * phi_prior_alt + phi_delta_alt.sum()
+        #
+        #
+
+
+
+
 
         # Responsabilities tmp1 ~ J x M x 1 (M = N)
         prod1 = torch.matmul((delta2_inv_j - nautral2_inv_j).unsqueeze(1), natural1_factors.unsqueeze(-1))
@@ -509,12 +580,16 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
                 for opt in all_optimizers:
                     opt.step()
 
+                self.get_posteriors(batched_observations)
+
             # Scheduler Steps
             for sched in all_scheduler:
                 sched.step()
 
             # Gather loss
             self.loss_tot.append(np.mean(loss_batch))
+
+
 
             # Logger
             print_loss(

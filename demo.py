@@ -77,18 +77,22 @@ for obsi in range(len(num_plot)):
             plt.ylabel('Factor. j=' + str(facti))
 
 
+
 # GPUs ?
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Data type: float64 / float32
 data_type = torch.float32
+torch.set_default_tensor_type(torch.DoubleTensor)
 torch.set_default_dtype(data_type)
 
 # Training Move to GPU
-obs = [(obsi / obsi.max()).to(device) for obsi in observations]
+obs = [(obsi / obsi.max()).to(device).to(data_type) for obsi in observations]
 
 # Testing Move to GPU
-obs_test = [(obsi / obsi.max()).to(device) for obsi in observations_test]
+obs_test = [(obsi / obsi.max()).to(device).to(data_type) for obsi in observations_test]
+
+data_type
 
 # Fit params
 prior_params = {
