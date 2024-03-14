@@ -321,7 +321,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         with torch.no_grad():
             self._forward_all(observations)
             natural01, natural02 = self.forwarded_prior
-            naturalj1, naturalj2 = self.forwarded_auxiliary
+            naturalj1, naturalj2 = self.forwarded_factors
             naturalaj1, naturalaj2 = self.forwarded_auxiliary
 
             naturalq1 = (natural01 + (naturalj1 - naturalaj1).sum(0)) / (1 + self.num_factors)
