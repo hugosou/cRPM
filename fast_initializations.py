@@ -46,24 +46,8 @@ class Mixin:
         # Logger
         _default_field(self.fit_params, key='pct', default=0.01)
 
-        # Ergodic assumption
-        _default_field(self.fit_params, key='ergodic', default=False)
-
         # Default Prior Parameters
         _default_field(self.fit_params, key ='prior_params', default ={})
-        # Kernel Types
-        _default_field(self.fit_params['prior_params'], key='gp_kernel', default='RBF')
-        # Fit/Fix Parameters
-        _default_field(self.fit_params['prior_params'], key='fit_kernel_scale', default=False)
-        _default_field(self.fit_params['prior_params'], key='fit_kernel_scale_prior', default=False)
-        _default_field(self.fit_params['prior_params'], key='fit_kernel_lengthscale', default=True)
-        _default_field(self.fit_params['prior_params'], key='fit_kernel_lengthscale_prior', default=True)
-        _default_field(self.fit_params['prior_params'], key='fit_prior_mean_param', default=True)
-        # Set Default/Init Parameters
-        _default_field(self.fit_params['prior_params'], key='scale', default=1.0)
-        _default_field(self.fit_params['prior_params'], key='scale_prior', default=1.0)
-        _default_field(self.fit_params['prior_params'], key='lengthscale', default=0.01)
-        _default_field(self.fit_params['prior_params'], key='lengthscale_prior', default=0.02)
         # Optimizer
         _default_field(self.fit_params['prior_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['prior_params'], key='scheduler', default=scheduler_closure_default)
@@ -76,20 +60,11 @@ class Mixin:
         _default_field(self.fit_params['factors_params'], key='kernel_pool', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='dim_hidden', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
-        _default_field(self.fit_params['factors_params'], key='covariance', default=_repeat_list('fixed', num_factors))
         # Dropout
         _default_field(self.fit_params['factors_params'], key='dropout', default=0.0)
         # Optimizer
         _default_field(self.fit_params['factors_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['factors_params'], key='scheduler', default=scheduler_closure_default)
-
-    def _init_prior(self):
-        """ Initialise parameters of k=1..K independent kernels """
-
-        natural1 = torch.zeros(self.dim_latent, device=self.device, dtype=self.dtype)
-        natural2 = -0.5 * torch.eye(self.dim_latent, device=self.device, dtype=self.dtype)
-
-        self.forwarded_prior = [natural1, natural2]
 
     def _init_factors(self, observations):
         """ Initialize recognition network of each factor """
@@ -114,10 +89,7 @@ class Mixin:
             # Fully connected layers parameters
             dim_hidden = fit_params["dim_hidden"]
             non_linearity = fit_params["nonlinearity"]
-
-            # Covariance type
-            covariance = fit_params["covariance"]
-
+            
             # Build and Append networks
             recognition_factors = []
             for obsi in range(num_factors):
@@ -140,7 +112,17 @@ class Mixin:
 
         diag_idx = vector_to_tril_diag_idx(self.dim_latent)
         chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)) )
-        chol[:, diag_idx] = -np.sqrt(0.5)
+        chol[:, diag_idx] = np.sqrt(0.5)
+        #chol[:, diag_idx] = 0
+        chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+        
         self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
         
 
+    def _init_prior(self):
+        """ Initialise parameters of k=1..K independent kernels """
+
+        natural1 = torch.zeros(self.dim_latent, device=self.device, dtype=self.dtype)
+        natural2 = -0.5 * torch.eye(self.dim_latent, device=self.device, dtype=self.dtype)
+
+        self.forwarded_prior = [natural1, natural2]

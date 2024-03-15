@@ -23,12 +23,7 @@ import _updates
 from utils import diagonalize, chol_inv_det
 
 
-# TODO: Freeze auxiliary
-# TODO: rotate to diagonalize covariances
-# TODO: Check Amortized RPGPFA
-# TODO: remove T !!
-# MAKE SURE PARAMETERS ARE BEING PTIMIZED !
-# TODO: Modif description
+# TODO: use a prior to select dimensions
 
 
 class RPM(fast_initializations.Mixin, _updates.Mixin):
@@ -36,34 +31,23 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
     Recognition Parametrised Model (RPM)
 
     Summary:
-        Flexible Class for Recognition Parametrised Factor Analysis (RPFA).
-        and Recognition Parametrised Gaussian Process Factor Analysis (RPGPFA).
+        Simple and Fast Recognition Parametrised Factor Analysis (RPFA).
 
     Args:
         - observations (torch.Tensor or List[torch.Tensor]): Multimodal (possibly time series) observations.
             Sizes:
                 len(observations) = num_factors
-                observations[j] ~ num_observations x len_observations x *dim_j
+                observations[j] ~ num_observations x *dim_j
             Where:
                 num_factors: number of conditionally independent factors
                 num_observations: number of observation samples
-                len_observations: length of the time series
                 dim_j: dimension of j=th observations
-        - observation_locations (torch.Tensor): Locations (e.g. time) at which observations are recorded
-            Sizes:
-                len_observations x dim_observation_locations
-        - inducing_locations (torch.Tensor): Locations (e.g. time) at of inducing points
         - loss_tot (List[float]): Stored Loss defined as - Free Energy
         - fit_params (Dict): Fit Parameters. See _initializations.py for Details
-        - prior (GPPrior): Latent Prior Distribution
-        - recognition_factors ()
         - recognition_factors (recognition.Encoder)
-        - recognition_auxiliary (recognition.Encoder)
-        - recognition_variational (recognition.Encoder)
 
     notation: for compactness, we sometimes denote:
         N: num_observations
-        T: len_observations
         K: dim_latent
         M: num_inducing_points (<= T)
 
@@ -76,10 +60,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             loss_tot: List = None,
             fit_params: Dict = None,
             precision_chol_vec_factors: torch.Tensor = None,
-            precision_chol_vec_auxiliary: torch.Tensor = None,
             recognition_factors: recognition.Encoder = None,
-            recognition_auxiliary: recognition.Encoder = None,
-
     ):
 
         # Transform Observation in list if necessary
@@ -89,7 +70,6 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # Problem dimensions
         self.num_factors = len(observations)
         self.num_observation = observations[0].shape[0]
-        self.len_observation = observations[0].shape[1]
 
         # Device and data type
         self.dtype = observations[0].dtype
@@ -104,10 +84,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self.loss_tot = [] if loss_tot is None else loss_tot
 
         # Initialize Distributions Parametrization
-        self.precision_chol_vec_factors = precision_chol_vec_factors
-        self.precision_chol_vec_auxiliary = precision_chol_vec_auxiliary
         self.recognition_factors = recognition_factors
-        self.recognition_auxiliary = recognition_auxiliary
+        self.precision_chol_vec_factors = precision_chol_vec_factors
         self._init_all(observations)
 
         # Sanity Checks
@@ -115,7 +93,6 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Init Forwarded
         self.forwarded_factors = None
-        self.forwarded_auxiliary = None
 
         # Init Distributions and parameters
         self.dist_factors = None
@@ -216,6 +193,9 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
                 init_cholesky=False,
                 store_suff_stat_mean=True,
             )
+            
+            self.dist_factors = distribution_factors
+            self.dist_variational = distribution_variational
 
         return distribution_variational, distribution_factors
 
@@ -225,7 +205,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         dim_latent = self.dim_latent
         num_factors = self.num_factors
         num_observation = self.num_observation_batch
-        normalizer = self.num_observation_batch * self.len_observation
+        normalizer = self.num_observation_batch
 
         # Natural parameters
         _, natural2_prior = self.forwarded_prior
@@ -255,7 +235,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Invert and Determinent ~ J x K x K and J x 1 x 1
         delta2_inv_j, delta2_logdet_j = chol_inv_det(delta_natural2_j)
-
+        
         # ~ J x K x K
         nautral2_inv_j, _ = chol_inv_det(natural2_factors)
 
@@ -312,12 +292,19 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         num_epoch = fit_params['num_epoch']
 
         # Recognition Factors Parameters
-        factors_param = [self.precision_chol_vec_factors]
+        factors_param = []
         for cur_factor in self.recognition_factors:
             factors_param += cur_factor.parameters()
 
+        precision_param = [self.precision_chol_vec_factors]
+        
+            
         all_params = [
             [factors_param, fit_params['factors_params']],
+            [precision_param, {
+                'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3), 
+                'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+            }],
         ]
 
         all_optimizers = [
