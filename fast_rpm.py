@@ -107,6 +107,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
     def _forward_all(self, observations):
         """ Forward Neural Networks"""
+        
         self._forward_factors(observations)
         self._forward_auxiliary(observations)
 
@@ -234,7 +235,11 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # ~ J x K x K
         var_natural1_j = matmul(delta_natural1_jn.unsqueeze(-1), delta_natural1_jn.unsqueeze(-2)).sum(dim=1)
 
+        
+        
+        
         # Invert and Determinent ~ K x K and 1 x 1
+        Id = - 1e10 * torch.eye(self.dim_latent, dtype = self.dtype, device=self.device)
         delta2_inv, delta2_logdet = chol_inv_det(delta_natural2 + natural2_prior)
 
         # Invert and Determinent ~ J x K x K and J x 1 x 1
@@ -245,22 +250,24 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Log Normalizer of the average
         constant1 = torch.tensor(
-            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi * (1 + num_factors))
+            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi * (1 + num_factors)),
+            device = self.device, dtype=self.dtype
         )
         logdet1 = - 0.5 * num_observation * (1 + num_factors) * delta2_logdet
         trace1 = - (delta2_inv * var_natural1).sum() / 4
         phi1 = constant1 + logdet1 + trace1
-
+        
         # Average Of the log normalizer
         constant2 = torch.tensor(
-            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi)
+            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi),
+            device = self.device, dtype=self.dtype
         )
         logdet2 = - 0.5 * (1 + num_factors) * (
                 num_observation * torch.log(torch.linalg.det(-natural2_prior)) + delta2_logdet_j.sum()
         )
         trace2 = - (delta2_inv_j * var_natural1_j).sum() / 4
         phi2 = constant2 + logdet2 + trace2
-
+        
         # KL normalizer
         kl_normalizer = phi1 - phi2
 
@@ -278,7 +285,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         log_denominator = torch.logsumexp(sj_mn, dim=1)
         log_gamma = log_numerator - log_denominator
         log_gamma = log_gamma.sum()
-
+        
         # Lower (lower) Bound to the log likelihood
         free_energy = (kl_normalizer + log_gamma) / normalizer
 
@@ -295,23 +302,29 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         fit_params = self.fit_params
         num_epoch = fit_params['num_epoch']
 
-        # Recognition Factors Parameters
-        factors_param = []
-        for cur_factor in self.recognition_factors:
-            factors_param += cur_factor.parameters()
+        
 
         precision_param = [
             self.precision_chol_vec_factors,
             self.precision_chol_vec_auxiliary
         ]
         
+        # Recognition Factors Parameters
+        factors_param = precision_param
+        for cur_factor in self.recognition_factors:
+            factors_param += cur_factor.parameters()
+        
             
+#         all_params = [
+#             [factors_param, fit_params['factors_params']],
+#             [precision_param, {
+#                 'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-4), 
+#                 'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
+#             }],
+#         ]
+
         all_params = [
             [factors_param, fit_params['factors_params']],
-            [precision_param, {
-                'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3), 
-                'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-            }],
         ]
 
         all_optimizers = [
@@ -337,24 +350,24 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
                 self.num_observation_batch = len(batch)
                 batched_observations = [obsi[batch] for obsi in observations] \
                     if len(batch) < self.num_observation else observations
-
+                
                 # Forward pass
                 self._forward_all(batched_observations)
-
-                # Loss
+                
+                # Loss    
                 loss = self._get_loss()
                 loss_batch.append(loss.item())
-
+                
                 # Reset Optimizers
                 for opt in all_optimizers:
                     opt.zero_grad()
-
+                
                 # Gradients
                 loss.backward()
 
                 # Gradient Steps
                 for opt in all_optimizers:
-                    opt.step()
+                    opt.step()    
 
             # Scheduler Steps
             for sched in all_scheduler:
