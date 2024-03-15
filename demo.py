@@ -82,7 +82,7 @@ for obsi in range(len(num_plot)):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Data type: float64 / float32
-data_type = torch.float32
+data_type = torch.float64
 torch.set_default_tensor_type(torch.DoubleTensor)
 torch.set_default_dtype(data_type)
 

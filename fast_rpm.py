@@ -111,6 +111,72 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._forward_factors(observations)
         self._forward_auxiliary(observations)
 
+        # with torch.no_grad():
+        #     natural1_prior, natural2_prior = self.forwarded_prior
+        #     natural1_factors, natural2_factors = self.forwarded_factors
+        #     natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
+        #
+        #     # Variational Distribution
+        #     natural1_variational = (natural1_prior.unsqueeze(0) + (natural1_factors - natural1_auxiliary).sum(dim=0)) / (1 + self.num_factors)
+        #     natural2_variational = (natural2_prior + (natural2_factors - natural2_auxiliary).sum(dim=0)) / (1 + self.num_factors)
+        #     natural2_variational = natural2_variational.unsqueeze(0).repeat(natural1_variational.shape[0], 1, 1)
+        #     forwarded_variational = FlexibleMultivariateNormal(
+        #         natural1_variational,
+        #         natural2_variational,
+        #         init_natural=True,
+        #         init_cholesky=False,
+        #         jitter = 0.0,
+        #         store_suff_stat_mean=True,
+        #     )
+        #
+        #     # Prior Distribution
+        #     forwarded_prior = FlexibleMultivariateNormal(
+        #         natural1_prior,
+        #         natural2_prior,
+        #         init_natural=True,
+        #         init_cholesky=False,
+        #         jitter=0.0,
+        #     )
+        #
+        #     # Delta Distribution
+        #     natural1_delta = natural1_factors - natural1_auxiliary
+        #     natural2_delta = natural2_factors - natural2_auxiliary
+        #     natural2_delta = natural2_delta.unsqueeze(1).repeat(1, natural1_delta.shape[1], 1, 1)
+        #     forwarded_delta = FlexibleMultivariateNormal(
+        #         natural1_delta,
+        #         natural2_delta,
+        #         init_natural=True,
+        #         init_cholesky=False,
+        #         jitter = 0.0,
+        #     )
+        #
+        #     self.phi_variational = forwarded_variational.log_normalizer * (self.num_factors + 1)
+        #     self.phi_prior = forwarded_prior.log_normalizer * self.num_observation_batch
+        #     self.phi_delta = forwarded_delta.log_normalizer
+        #     self.kl_normalizer = self.phi_variational.sum() - (self.phi_prior.sum() + self.phi_delta.sum())
+        #
+        #     alt_natural1_variational = natural1_variational.unsqueeze(0).repeat(self.num_factors, 1, 1)
+        #     alt_natural2_variational = natural2_variational.unsqueeze(0).repeat(self.num_factors, 1, 1, 1)
+        #     alt_forwarded_variational = FlexibleMultivariateNormal(
+        #         alt_natural1_variational,
+        #         alt_natural2_variational,
+        #         init_natural=True,
+        #         init_cholesky=False,
+        #         store_suff_stat_mean = True,
+        #     )
+        #     KLqf = flexible_kl(alt_forwarded_variational, forwarded_delta).sum()
+        #
+        #     alt_natural1_prior = natural1_prior.unsqueeze(0).repeat(natural1_variational.shape[0], 1)
+        #     alt_natural2_prior = natural2_prior.unsqueeze(0).repeat(natural1_variational.shape[0], 1, 1)
+        #     alt_forwarded_prior = FlexibleMultivariateNormal(
+        #         alt_natural1_prior,
+        #         alt_natural2_prior,
+        #         init_natural=True,
+        #         init_cholesky=False,
+        #     )
+        #     KLqp = flexible_kl(forwarded_variational, alt_forwarded_prior).sum()
+        #     self.KL = -(KLqf + KLqp)
+
     def _forward_factors(self, observations):
         """ Recognition Factors"""
 
@@ -146,11 +212,11 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Auxiliary Distributions
         natural1_auxiliary = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
-        #natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+        natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
 
-        # 2nd natural parameter ~ J x K x K
-        natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
-        natural2_auxiliary = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
+        # # 2nd natural parameter ~ J x K x K
+        # natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
+        # natural2_auxiliary = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
 
         # Store
         self.forwarded_auxiliary = [natural1_auxiliary, natural2_auxiliary]
@@ -235,11 +301,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # ~ J x K x K
         var_natural1_j = matmul(delta_natural1_jn.unsqueeze(-1), delta_natural1_jn.unsqueeze(-2)).sum(dim=1)
 
-        
-        
-        
         # Invert and Determinent ~ K x K and 1 x 1
-        Id = - 1e10 * torch.eye(self.dim_latent, dtype = self.dtype, device=self.device)
+        # Id = - 1e10 * torch.eye(self.dim_latent, dtype = self.dtype, device=self.device)
         delta2_inv, delta2_logdet = chol_inv_det(delta_natural2 + natural2_prior)
 
         # Invert and Determinent ~ J x K x K and J x 1 x 1
@@ -256,20 +319,64 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         logdet1 = - 0.5 * num_observation * (1 + num_factors) * delta2_logdet
         trace1 = - (delta2_inv * var_natural1).sum() / 4
         phi1 = constant1 + logdet1 + trace1
-        
+
+
         # Average Of the log normalizer
         constant2 = torch.tensor(
-            0.5 * dim_latent * num_observation * (1 + num_factors) * np.log(np.pi),
-            device = self.device, dtype=self.dtype
+            0.5 * dim_latent * num_observation * np.log(np.pi),
+            device=self.device, dtype=self.dtype
         )
-        logdet2 = - 0.5 * (1 + num_factors) * (
-                num_observation * torch.log(torch.linalg.det(-natural2_prior)) + delta2_logdet_j.sum()
-        )
-        trace2 = - (delta2_inv_j * var_natural1_j).sum() / 4
+        logdet2 = - 0.5 * num_observation * torch.log(torch.linalg.det(-natural2_prior))
+        trace2 = 0
         phi2 = constant2 + logdet2 + trace2
-        
+
+        constant3 = torch.tensor(
+            0.5 * dim_latent * num_observation * num_factors * np.log(np.pi),
+            device=self.device, dtype=self.dtype
+        )
+        trace3 = - (delta2_inv_j * var_natural1_j).sum() / 4
+        logdet3 = - 0.5 * delta2_logdet_j.sum() * num_observation
+        phi3 = constant3 + logdet3 + trace3
+
         # KL normalizer
-        kl_normalizer = phi1 - phi2
+        kl_normalizer = phi1 - phi2 - phi3
+
+        # delta = self.phi_variational.sum().item() - phi1.item()
+        # print('Efficient Method Phi1 = ' + str(phi1.item()))
+        # print('Full Dist Method Phi1 = ' + str(self.phi_variational.sum().item()))
+        # print('Deltas    Method Phi1 = ' + str(delta))
+        # print('NormDelta Method Phi1 = ' + str(delta / phi1.item()))
+        # print('')
+        #
+        # delta = self.phi_prior.item() - phi2.item()
+        # print('Efficient Method Phi2 = ' + str(phi2.item()))
+        # print('Full Dist Method Phi2 = ' + str(self.phi_prior.item()))
+        # print('Deltas    Method Phi2 = ' + str(delta))
+        # print('NormDelta Method Phi2 = ' + str(delta / phi2.item()))
+        # print('')
+        #
+        #
+        # delta = self.phi_delta.sum().item() - phi3.item()
+        # print('Efficient Method Phi3 = ' + str(phi3.item()))
+        # print('Full Dist Method Phi3 = ' + str(self.phi_delta.sum().item()))
+        # print('Deltas    Method Phi3 = ' + str(delta))
+        # print('NormDelta Method Phi3 = ' + str(delta / phi3.item()))
+        # print('')
+        #
+        # delta = self.kl_normalizer.item() - kl_normalizer.item()
+        # print('Efficient Method KLn = ' + str(kl_normalizer.item()))
+        # print('Full Dist Method KLn = ' + str(self.kl_normalizer.item()))
+        # print('Deltas    Method KLn = ' + str(delta))
+        # print('NormDelta Method KLn = ' + str(delta / kl_normalizer.item()))
+        # print('')
+        #
+        # delta = self.KL.item() - kl_normalizer.item()
+        # print('Efficient Method KL2 = ' + str(kl_normalizer.item()))
+        # print('Full Dist Method KL2 = ' + str(self.KL.item()))
+        # print('Deltas    Method KL2 = ' + str(delta))
+        # print('NormDelta Method KL2 = ' + str(delta / kl_normalizer.item()))
+        # print('')
+
 
         # Responsabilities tmp1 ~ J x M x 1 (M = N)
         prod1 = torch.matmul((delta2_inv_j - nautral2_inv_j).unsqueeze(1), natural1_factors.unsqueeze(-1))
