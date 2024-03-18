@@ -212,11 +212,11 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Auxiliary Distributions
         natural1_auxiliary = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
-        natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+        # natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
 
         # # 2nd natural parameter ~ J x K x K
-        # natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
-        # natural2_auxiliary = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
+        natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
+        natural2_auxiliary = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
 
         # Store
         self.forwarded_auxiliary = [natural1_auxiliary, natural2_auxiliary]
@@ -413,7 +413,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         precision_param = [
             self.precision_chol_vec_factors,
-            #self.precision_chol_vec_auxiliary
+            self.precision_chol_vec_auxiliary
         ]
         
         # Recognition Factors Parameters
@@ -509,7 +509,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._init_prior()
         self._init_factors(observations)
         self._init_precision_factors()
-        #self._init_precision_auxiliary()
+        self._init_precision_auxiliary()
 
 
 
