@@ -114,19 +114,19 @@ class Mixin:
         chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)) )
         chol[:, diag_idx] = np.sqrt(0.5)
         #chol[:, diag_idx] = 0
-        chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+        #chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
         
         self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
 
-    def _init_precision_auxiliary(self):
+#     def _init_precision_auxiliary(self):
 
-        diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-        chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
-        chol[:, diag_idx] = np.sqrt(0.5)
-        # chol[:, diag_idx] = 0
-        chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+#         diag_idx = vector_to_tril_diag_idx(self.dim_latent)
+#         chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
+#         chol[:, diag_idx] = np.sqrt(0.5)
+#         # chol[:, diag_idx] = 0
+#         chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
 
-        self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
+#         self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
         
 
     def _init_prior(self):
