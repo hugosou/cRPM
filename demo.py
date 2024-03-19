@@ -161,7 +161,7 @@ rpm = RPM(
 rpm.fit(obs)
 
 
-
+import fast_save_load
 fast_save_load.rpm_save(rpm, 'tmp.pickle')
 
 aa = fast_save_load.rpm_load('tmp.pickle', observations=obs)

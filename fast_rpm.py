@@ -191,7 +191,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         )
 
         # 2nd natural parameter ~ J x K x K
-        natural2_factors_tril = vector_to_tril(self.precision_chol_vec_factors)
+        natural2_factors_tril = vector_to_tril(self.precision_chol_vec_factors.chol_vec)
         natural2_factors = natural2_prior - torch.matmul(natural2_factors_tril, natural2_factors_tril.transpose(-1, -2))
 
         # Store
@@ -412,7 +412,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         
 
         precision_param = [
-            self.precision_chol_vec_factors,
+            *self.precision_chol_vec_factors.parameters(),
             #self.precision_chol_vec_auxiliary
         ]
         
@@ -510,6 +510,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._init_factors(observations)
         self._init_precision_factors()
         #self._init_precision_auxiliary()
+
+
 
 
 

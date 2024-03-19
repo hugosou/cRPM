@@ -117,7 +117,10 @@ class Mixin:
             chol[:, diag_idx] = np.sqrt(0.5)
             #chol[:, diag_idx] = 0
             #chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
-            self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
+            #self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
+            self.precision_chol_vec_factors = fast_recognition.Precision(
+                torch.tensor(chol)
+            ).to(self.device.index)
 
     def _init_precision_auxiliary(self):
 

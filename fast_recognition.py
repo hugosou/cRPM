@@ -399,3 +399,11 @@ def reorganize_sufficient_statistics(y, dim_latent, covariance, idx_diag, dim_ou
             raise NotImplementedError
 
     return z
+
+
+class Precision(nn.Module):
+
+    def __init__(self, chol_vec: torch.Tensor):
+        super().__init__()
+
+        self.chol_vec = torch.nn.Parameter(chol_vec, requires_grad=True)
