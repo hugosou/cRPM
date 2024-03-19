@@ -124,7 +124,7 @@ class Mixin:
         chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
         chol[:, diag_idx] = np.sqrt(0.5)
         # chol[:, diag_idx] = 0
-        chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+        chol = 0.01 * np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
 
         self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
         
