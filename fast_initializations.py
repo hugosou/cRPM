@@ -110,24 +110,26 @@ class Mixin:
 
     def _init_precision_factors(self):
 
-        diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-        chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)) )
-        chol[:, diag_idx] = np.sqrt(0.5)
-        #chol[:, diag_idx] = 0
-        #chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
-        
-        self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
+        if self.precision_chol_vec_factors is None:
+
+            diag_idx = vector_to_tril_diag_idx(self.dim_latent)
+            chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)) )
+            chol[:, diag_idx] = np.sqrt(0.5)
+            #chol[:, diag_idx] = 0
+            #chol = np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+            self.precision_chol_vec_factors = torch.tensor(chol, dtype = self.dtype, requires_grad=True, device=self.device)
 
     def _init_precision_auxiliary(self):
 
-        diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-        chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
-        chol[:, diag_idx] = np.sqrt(0.5)
-        # chol[:, diag_idx] = 0
-        chol = 0.01 * np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+        if self.precision_chol_vec_auxiliary is None:
 
-        self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
-        
+            diag_idx = vector_to_tril_diag_idx(self.dim_latent)
+            chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
+            chol[:, diag_idx] = np.sqrt(0.5)
+            # chol[:, diag_idx] = 0
+            chol = 0.01 * np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
+            self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
+
 
     def _init_prior(self):
         """ Initialise parameters of k=1..K independent kernels """

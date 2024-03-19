@@ -413,7 +413,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         precision_param = [
             self.precision_chol_vec_factors,
-            self.precision_chol_vec_auxiliary
+            #self.precision_chol_vec_auxiliary
         ]
         
         # Recognition Factors Parameters
@@ -509,7 +509,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._init_prior()
         self._init_factors(observations)
         self._init_precision_factors()
-        self._init_precision_auxiliary()
+        #self._init_precision_auxiliary()
 
 
 

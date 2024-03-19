@@ -141,8 +141,9 @@ variational_params = {
 }
 
 fit_params = {
-    'num_epoch': 100,
-    'batch_size': 2000,
+    'num_epoch': 1,
+    'batch_size': 1000
+    ,
     'dim_latent': 3,
     'prior_params': prior_params,
     'factors_params': factors_params,
@@ -158,3 +159,16 @@ rpm = RPM(
 )
 
 rpm.fit(obs)
+
+
+
+fast_save_load.rpm_save(rpm, 'tmp.pickle')
+
+aa = fast_save_load.rpm_load('tmp.pickle', observations=obs)
+
+print(9)
+
+
+
+
+
