@@ -105,10 +105,10 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             self._forward_all(batched_observations)
             self.loss_tot.append(self._get_loss().item())
 
-    def _forward_all(self, observations):
+    def _forward_all(self, observations, eval_mode=false):
         """ Forward Neural Networks"""
         
-        self._forward_factors(observations)
+        self._forward_factors(observations, eval_mode=eval_mode)
         self._forward_auxiliary(observations)
 
         # with torch.no_grad():
@@ -177,7 +177,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     KLqp = flexible_kl(forwarded_variational, alt_forwarded_prior).sum()
         #     self.KL = -(KLqf + KLqp)
 
-    def _forward_factors(self, observations):
+    def _forward_factors(self, observations, eval_mode=False):
         """ Recognition Factors"""
 
         # Prior Distributions
@@ -185,10 +185,19 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # 1st natural parameter: Forward recognition networks ~ J x N x K
         recognition_factors = self.recognition_factors
+        
+        if eval_mode:
+            for facti in recognition_factors:
+                facti.eval()
+        
         natural1_factors = torch.cat(
             [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_factors, observations)],
             axis=0
         )
+        
+        if eval_mode:
+            for facti in recognition_factors:
+                facti.train()
 
         # 2nd natural parameter ~ J x K x K
         natural2_factors_tril = vector_to_tril(self.precision_chol_vec_factors.chol_vec)
@@ -230,7 +239,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             num_factors = self.num_factors
 
             # Model Distribution
-            self._forward_all(observations)
+            self._forward_all(observations, eval_mode=True)
 
             # Prior ~ K (x K)
             natural1_prior, natural2_prior = self.forwarded_prior
