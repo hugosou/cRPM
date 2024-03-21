@@ -60,8 +60,9 @@ class Mixin:
         _default_field(self.fit_params['factors_params'], key='kernel_pool', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='dim_hidden', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['factors_params'], key='dropout',  default=_repeat_list(F.relu, num_factors))
         # Dropout
-        _default_field(self.fit_params['factors_params'], key='dropout', default=0.0)
+        
         # Optimizer
         _default_field(self.fit_params['factors_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['factors_params'], key='scheduler', default=scheduler_closure_default)
@@ -102,7 +103,7 @@ class Mixin:
                     dim_hidden=dim_hidden[obsi],
                     non_linearity=non_linearity[obsi],
                     zero_init=False,
-                    dropout=dropout,
+                    dropout=dropout[obsi],
                 ).to(self.device.index)
                 recognition_factors.append(neti)
 

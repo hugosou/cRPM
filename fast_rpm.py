@@ -105,7 +105,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             self._forward_all(batched_observations)
             self.loss_tot.append(self._get_loss().item())
 
-    def _forward_all(self, observations, eval_mode=false):
+    def _forward_all(self, observations, eval_mode=False):
         """ Forward Neural Networks"""
         
         self._forward_factors(observations, eval_mode=eval_mode)
