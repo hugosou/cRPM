@@ -65,7 +65,9 @@ def rpm_load(
         fit_params=loaded_dict['fit_params'],
         loss_tot=loaded_dict['loss_tot'],
         recognition_factors=loaded_dict['recognition_factors'],
+        recognition_auxiliary=loaded_dict['recognition_auxiliary'],
         precision_chol_vec_factors=loaded_dict['precision_chol_vec_factors'],
+        precision_chol_vec_auxiliary=loaded_dict['precision_chol_vec_auxiliary'],
     )
 
     return loaded_rpm, observations, true_latent
@@ -99,7 +101,9 @@ def _dictionarize(
         dict_model = {
             'fit_params': model.fit_params,
             'recognition_factors': model.recognition_factors,
+            'recognition_auxiliary': model.recognition_auxiliary,
             'precision_chol_vec_factors': model.precision_chol_vec_factors,
+            'precision_chol_vec_auxiliary':model.precision_chol_vec_auxiliary,
             'observations': observations,
             'true_latent': true_latent,
             'loss_tot': model.loss_tot
