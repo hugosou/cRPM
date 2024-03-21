@@ -109,10 +109,10 @@ auxiliary_params = {
 
 
 fit_params = {
-    'num_epoch': 3,
+    'num_epoch': 2,
     'batch_size': 1000,
     'auxiliary_update': False,
-    'auxiliary_toggle': lambda x: x.epoch > 10,
+    'auxiliary_toggle': lambda x: x.epoch > 0,
     'dim_latent': 3,
     'factors_params': factors_params,
     'auxiliary_params': auxiliary_params,
