@@ -59,8 +59,10 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             observations: Union[torch.Tensor, List[torch.tensor]],
             loss_tot: List = None,
             fit_params: Dict = None,
-            precision_chol_vec_factors: torch.Tensor = None,
             recognition_factors: recognition.Encoder = None,
+            recognition_auxiliary: recognition.Encoder = None,
+            precision_chol_vec_factors: torch.Tensor = None,
+            precision_chol_vec_auxiliary: torch.Tensor = None,
     ):
 
         # Transform Observation in list if necessary
@@ -85,7 +87,9 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # Initialize Distributions Parametrization
         self.recognition_factors = recognition_factors
+        self.recognition_auxiliary = recognition_auxiliary
         self.precision_chol_vec_factors = precision_chol_vec_factors
+        self.precision_chol_vec_auxiliary = precision_chol_vec_auxiliary
         self._init_all(observations)
 
         # Sanity Checks
@@ -105,10 +109,10 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             self._forward_all(batched_observations)
             self.loss_tot.append(self._get_loss().item())
 
-    def _forward_all(self, observations, eval_mode=False):
+    def _forward_all(self, observations):
         """ Forward Neural Networks"""
         
-        self._forward_factors(observations, eval_mode=eval_mode)
+        self._forward_factors(observations)
         self._forward_auxiliary(observations)
 
         # with torch.no_grad():
@@ -177,7 +181,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         #     KLqp = flexible_kl(forwarded_variational, alt_forwarded_prior).sum()
         #     self.KL = -(KLqf + KLqp)
 
-    def _forward_factors(self, observations, eval_mode=False):
+    def _forward_factors(self, observations):
         """ Recognition Factors"""
 
         # Prior Distributions
@@ -185,19 +189,11 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
         # 1st natural parameter: Forward recognition networks ~ J x N x K
         recognition_factors = self.recognition_factors
-        
-        if eval_mode:
-            for facti in recognition_factors:
-                facti.eval()
-        
+
         natural1_factors = torch.cat(
             [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_factors, observations)],
             axis=0
         )
-        
-        if eval_mode:
-            for facti in recognition_factors:
-                facti.train()
 
         # 2nd natural parameter ~ J x K x K
         natural2_factors_tril = vector_to_tril(self.precision_chol_vec_factors.chol_vec)
@@ -219,13 +215,31 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # Recognition Distributions
         natural1_factors, natural2_factors = self.forwarded_factors
 
-        # Auxiliary Distributions
-        natural1_auxiliary = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
-        natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
 
-        # # 2nd natural parameter ~ J x K x K
-        #natural2_auxiliary_tril = vector_to_tril(self.precision_chol_vec_auxiliary)
-        #natural2_auxiliary = natural2_factors + torch.matmul(natural2_auxiliary_tril, natural2_auxiliary_tril.transpose(-1, -2))
+        #self.fit_params['']
+        if not(self.fit_params['auxiliary_update']):
+            # Constrained Updates
+
+            # Auxiliary Distributions
+            natural1_auxiliary = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+            natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+
+        else:
+
+            recognition_auxiliary = self.recognition_auxiliary
+            natural1_auxiliary_tmp = torch.cat(
+                [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_auxiliary, observations)],
+                axis=0
+            )
+
+            # 1st natural parameter
+            natural1_auxiliary_init = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True)
+            natural1_auxiliary = natural1_auxiliary_init + natural1_factors - natural1_auxiliary_tmp
+
+            # 2nd natural parameter
+            precision_chol_auxiliary = vector_to_tril(self.precision_chol_vec_auxiliary.chol_vec)
+            natural2_auxiliary_tmp = matmul(precision_chol_auxiliary, precision_chol_auxiliary.transpose(-1, -2))
+            natural2_auxiliary = natural2_factors + natural2_auxiliary_tmp
 
         # Store
         self.forwarded_auxiliary = [natural1_auxiliary, natural2_auxiliary]
@@ -238,8 +252,15 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             # Dimension of the problem
             num_factors = self.num_factors
 
+            for reci in self.recognition_factors:
+                reci.eval()
+
+            if self.fit_params['auxiliary_update']:
+                for reci in self.recognition_auxiliary:
+                    reci.eval()
+
             # Model Distribution
-            self._forward_all(observations, eval_mode=True)
+            self._forward_all(observations)
 
             # Prior ~ K (x K)
             natural1_prior, natural2_prior = self.forwarded_prior
@@ -417,27 +438,11 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # Fit params
         fit_params = self.fit_params
         num_epoch = fit_params['num_epoch']
-
-        
-
-        precision_param = [
-            *self.precision_chol_vec_factors.parameters(),
-            #self.precision_chol_vec_auxiliary
-        ]
         
         # Recognition Factors Parameters
-        factors_param = precision_param
+        factors_param = [*self.precision_chol_vec_factors.parameters()]
         for cur_factor in self.recognition_factors:
             factors_param += cur_factor.parameters()
-        
-            
-#         all_params = [
-#             [factors_param, fit_params['factors_params']],
-#             [precision_param, {
-#                 'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-4), 
-#                 'scheduler': lambda optim: torch.optim.lr_scheduler.ConstantLR(optim, factor=1)
-#             }],
-#         ]
 
         all_params = [
             [factors_param, fit_params['factors_params']],
@@ -459,6 +464,9 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             # Current epoch losses
             loss_batch = []
+
+            # Decide to constrain or not auxiliary parameters
+            all_optimizers, all_scheduler = self._toggle_auxilary(observations, all_optimizers, all_scheduler)
 
             for batch_id, batch in enumerate(batches):
 
@@ -518,8 +526,28 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._init_prior()
         self._init_factors(observations)
         self._init_precision_factors()
-        #self._init_precision_auxiliary()
 
+    def _toggle_auxilary(self, observations, optimizers, schedulers):
+        if not (self.fit_params['auxiliary_update']):
+            if self.fit_params['auxiliary_toggle'](self):
+                print('Toggling Auxiliary Factors Update')
+                self.fit_params['auxiliary_update'] = True
+
+                self._init_auxiliary(observations)
+                self._init_precision_auxiliary()
+
+                # Recognition Factors Parameters
+                auxiliary_param = [*self.precision_chol_vec_auxiliary.parameters()]
+                for cur_factor in self.recognition_auxiliary:
+                    auxiliary_param += cur_factor.parameters()
+
+                optimizer = self.fit_params['auxiliary_params']['optimizer'](auxiliary_param)
+                scheduler = self.fit_params['auxiliary_params']['scheduler'](optimizer)
+
+                optimizers.append(optimizer)
+                schedulers.append(scheduler)
+
+        return optimizers, schedulers
 
 
 

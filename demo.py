@@ -92,21 +92,6 @@ obs = [(obsi / obsi.max()).to(device).to(data_type) for obsi in observations]
 # Testing Move to GPU
 obs_test = [(obsi / obsi.max()).to(device).to(data_type) for obsi in observations_test]
 
-data_type
-
-# Fit params
-prior_params = {
-    'gp_kernel': 'RBF',
-    'scale': 1,
-    'lengthscale': 0.01,
-    'fit_kernel_scale': False,
-    'fit_kernel_scale_prior': False,
-    'fit_kernel_lengthscale': False,
-    'fit_kernel_lengthscale_prior': False,
-    'fit_prior_mean_param': False,
-    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
-}
-
 factors_params = {
     'channels': [[1, 10, 20], [1, 10, 20]],
     'kernel_conv': [[5, 5], [5, 5]],
@@ -118,37 +103,19 @@ factors_params = {
 }
 
 auxiliary_params = {
-    'channels': [[1, 10, 20], [1, 10, 20]],
-    'kernel_conv': [[5, 5], [5, 5]],
-    'kernel_pool': [[2, 2], [2, 2]],
-    'dim_hidden': [[50], [50]],
-    'nonlinearity': [F.relu, F.relu],
-    'covariance': ['fixed_diag', 'fixed_diag'],
     'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+    'update_bool': False,
 }
 
-variational_params = {
-    'inference_mode': 'amortized',  # 'amortized', 'parametrized'
-    'channels': [[1, 10, 20], [1, 10, 20]],
-    'kernel_conv': [[5, 5], [5, 5]],
-    'kernel_pool': [[2, 2], [2, 2]],
-    'dim_hidden': [[50], [50]],
-    'dim_hidden_merged': [50],
-    'nonlinearity': [F.relu, F.relu],
-    'nonlinearity_merged': F.relu,
-    'covariance': 'fixed_diag',
-    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
-}
 
 fit_params = {
-    'num_epoch': 1,
-    'batch_size': 1000
-    ,
+    'num_epoch': 3,
+    'batch_size': 1000,
+    'auxiliary_update': False,
+    'auxiliary_toggle': lambda x: x.epoch > 10,
     'dim_latent': 3,
-    'prior_params': prior_params,
     'factors_params': factors_params,
     'auxiliary_params': auxiliary_params,
-    'variational_params': variational_params,
     'ergodic': False,
     'pct': 0.1
 }
@@ -160,6 +127,8 @@ rpm = RPM(
 
 rpm.fit(obs)
 
+
+rpm.get_posteriors(obs)
 
 import fast_save_load
 fast_save_load.rpm_save(rpm, 'tmp.pickle')
