@@ -48,6 +48,7 @@ class Mixin:
 
         # Constrain auxiliary
         _default_field(self.fit_params, key='auxiliary_update', default=False)
+        _default_field(self.fit_params, key='auxiliary_toggle', default=lambda x: False)
 
         # Logger
         _default_field(self.fit_params, key='pct', default=0.01)
