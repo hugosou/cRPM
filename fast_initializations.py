@@ -55,6 +55,7 @@ class Mixin:
 
         # Default Recognition Factors Parameters
         _default_field(self.fit_params, key='factors_params', default={})
+        _default_field(self.fit_params, key='auxiliary_params', default={})
         # Network Parameters
         _default_field(self.fit_params['factors_params'], key='channels', default= _repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='kernel_conv', default=_repeat_list((), num_factors))
@@ -170,6 +171,6 @@ class Mixin:
         """ Initialise parameters of k=1..K independent kernels """
 
         natural1 = torch.zeros(self.dim_latent, device=self.device, dtype=self.dtype)
-        natural2 = -0.5 * torch.eye(self.dim_latent, device=self.device, dtype=self.dtype)
+        natural2 = -0.05 * torch.eye(self.dim_latent, device=self.device, dtype=self.dtype)
 
         self.forwarded_prior = [natural1, natural2]
