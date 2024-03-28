@@ -133,8 +133,8 @@ class Mixin:
     def _init_auxiliary(self, observations):
         """ Initialize auxiliary recognition networks """
         if self.recognition_auxiliary is None:
-            #self.recognition_auxiliary = copy.deepcopy(self.recognition_factors)
-            self.recognition_auxiliary = self._init_recognition(self.fit_params['auxiliary_params'], observations)
+            self.recognition_auxiliary = copy.deepcopy(self.recognition_factors)
+            #self.recognition_auxiliary = self._init_recognition(self.fit_params['auxiliary_params'], observations)
 
     def _init_precision_factors(self):
 

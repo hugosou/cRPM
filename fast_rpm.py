@@ -219,14 +219,21 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         if self.fit_params['auxiliary_mode'] == 'flexible':
             # 1st Natural Parameter
             recognition_auxiliary = self.recognition_auxiliary
-            natural1_auxiliary = torch.cat(
+            natural1_auxiliary_tmp = torch.cat(
                 [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_auxiliary, observations)],
                 axis=0
             )
 
             # 2nd natural parameter
             precision_chol_auxiliary = vector_to_tril(self.precision_chol_vec_auxiliary.chol_vec)
-            natural2_auxiliary = - matmul(precision_chol_auxiliary, precision_chol_auxiliary.transpose(-1, -2))
+            natural2_auxiliary_tmp = - matmul(precision_chol_auxiliary, precision_chol_auxiliary.transpose(-1, -2))
+
+            natural1_auxiliary_offset = (natural1_factors - natural1_prior).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+            natural2_auxiliary_offset = (natural2_factors - natural2_prior).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+
+            natural1_auxiliary = natural1_auxiliary_offset + natural1_auxiliary_tmp - natural1_factors
+            natural2_auxiliary = natural2_auxiliary_offset + natural2_auxiliary_tmp - (natural2_factors - natural2_prior)
+
 
         elif self.fit_params['auxiliary_mode'] == 'constrained_prior':
 
