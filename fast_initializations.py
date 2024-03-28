@@ -152,7 +152,7 @@ class Mixin:
 
             diag_idx = vector_to_tril_diag_idx(self.dim_latent)
             chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
-            chol[:, diag_idx] = np.sqrt(0.05)
+            chol[:, diag_idx] = np.sqrt(0.5)
             self.precision_chol_vec_auxiliary = fast_recognition.Precision(
                 torch.tensor(chol, dtype=self.dtype)
             ).to(self.device.index)
