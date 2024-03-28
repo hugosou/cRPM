@@ -113,7 +113,7 @@ fit_params = {
     'batch_size': 1000,
     'auxiliary_update': True,
     'auxiliary_toggle': lambda x: x.epoch > 0,
-    'auxiliary_mode': 'flexible', # flexible, constrained_prior, constrained_moment_matched
+    'auxiliary_mode': 'constrained_moment_matched', # flexible, constrained_prior, constrained_moment_matched
     'dim_latent': 3,
     'factors_params': factors_params,
     'auxiliary_params': factors_params,

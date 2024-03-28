@@ -249,8 +249,10 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
                     - matmul(mean_natural1_factors.unsqueeze(-1), mean_natural1_factors.unsqueeze(-2))
             )
 
+            # TODO: This actually need to be better checked !
             VarIm1 = torch.linalg.inv(
-                torch.eye(self.dim_latent, dtype=self.dtype, device=self.device) + vari_natural1_factors
+                torch.eye(self.dim_latent, dtype=self.dtype, device=self.device)
+                - 0.5 * torch.matmul(vari_natural1_factors, torch.linalg.inv(natural2_factors))
             )
 
             natural1_moment_matched = matmul(VarIm1, mean_natural1_factors.unsqueeze(-1)).squeeze(-1).unsqueeze(1)
