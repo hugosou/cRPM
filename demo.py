@@ -111,11 +111,12 @@ auxiliary_params = {
 fit_params = {
     'num_epoch': 2,
     'batch_size': 1000,
-    'auxiliary_update': False,
+    'auxiliary_update': True,
     'auxiliary_toggle': lambda x: x.epoch > 0,
+    'auxiliary_mode': 'constrained_moment_matched', # flexible, constrained_prior
     'dim_latent': 3,
     'factors_params': factors_params,
-    'auxiliary_params': auxiliary_params,
+    'auxiliary_params': factors_params,
     'ergodic': False,
     'pct': 0.1
 }

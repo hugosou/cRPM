@@ -24,6 +24,7 @@ from utils import diagonalize, chol_inv_det
 
 
 # TODO: use a prior to select dimensions
+# TODO: only inititalize auxiliary network if necessary !
 
 
 class RPM(fast_initializations.Mixin, _updates.Mixin):
@@ -185,12 +186,12 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         """ Recognition Factors"""
 
         # Prior Distributions
-        _, natural2_prior = self.forwarded_prior
+        natural1_prior, natural2_prior = self.forwarded_prior
 
         # 1st natural parameter: Forward recognition networks ~ J x N x K
         recognition_factors = self.recognition_factors
 
-        natural1_factors = torch.cat(
+        natural1_factors = natural1_prior.unsqueeze(0).unsqueeze(0) + torch.cat(
             [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_factors, observations)],
             axis=0
         )
@@ -215,31 +216,51 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # Recognition Distributions
         natural1_factors, natural2_factors = self.forwarded_factors
 
-
-        #self.fit_params['']
-        if not(self.fit_params['auxiliary_update']):
-            # Constrained Updates
-
-            # Auxiliary Distributions
-            natural1_auxiliary = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
-            natural2_auxiliary = (natural2_prior - natural2_factors).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
-
-        else:
-
+        if self.fit_params['auxiliary_mode'] == 'flexible':
+            # 1st Natural Parameter
             recognition_auxiliary = self.recognition_auxiliary
-            natural1_auxiliary_tmp = torch.cat(
+            natural1_auxiliary = torch.cat(
                 [facti(obsi).unsqueeze(0) for facti, obsi in zip(recognition_auxiliary, observations)],
                 axis=0
             )
 
-            # 1st natural parameter
-            natural1_auxiliary_init = (natural1_prior - natural1_factors).sum(dim=0, keepdims=True)
-            natural1_auxiliary = natural1_auxiliary_init + natural1_factors - natural1_auxiliary_tmp
-
             # 2nd natural parameter
             precision_chol_auxiliary = vector_to_tril(self.precision_chol_vec_auxiliary.chol_vec)
-            natural2_auxiliary_tmp = matmul(precision_chol_auxiliary, precision_chol_auxiliary.transpose(-1, -2))
-            natural2_auxiliary = natural2_factors + natural2_auxiliary_tmp
+            natural2_auxiliary = - matmul(precision_chol_auxiliary, precision_chol_auxiliary.transpose(-1, -2))
+
+        elif self.fit_params['auxiliary_mode'] == 'constrained_prior':
+
+            # Auxiliary Distributions
+            natural1_auxiliary = (natural1_factors - natural1_prior).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+            natural2_auxiliary = (natural2_factors - natural2_prior).sum(dim=0, keepdims=True).repeat(num_factors, 1, 1)
+
+        elif self.fit_params['auxiliary_mode'] == 'constrained_moment_matched':
+
+            mean_natural1_factors = natural1_factors.mean(1)
+            vari_natural1_factors = (
+                    matmul(natural1_factors.unsqueeze(-1), natural1_factors.unsqueeze(-2)).mean(dim=1)
+                    - matmul(mean_natural1_factors.unsqueeze(-1), mean_natural1_factors.unsqueeze(-2))
+            )
+
+            VarIm1 = torch.linalg.inv(
+                torch.eye(self.dim_latent, dtype=self.dtype, device=self.device) + vari_natural1_factors
+            )
+
+            natural1_moment_matched = matmul(VarIm1, mean_natural1_factors.unsqueeze(-1)).squeeze(-1).unsqueeze(1)
+            natural2_moment_matched = matmul(VarIm1, natural2_factors)
+
+            # Auxiliary Distributions
+            natural1_auxiliary = (
+                    natural1_prior - natural1_moment_matched
+                    + (natural1_factors - natural1_moment_matched).sum(dim=0, keepdims=True)
+            )
+            natural2_auxiliary = (
+                    natural2_prior - natural2_moment_matched
+                    + (natural2_factors - natural2_moment_matched).sum(dim=0, keepdims=True)
+            )
+
+        else:
+            raise NotImplementedError()
 
         # Store
         self.forwarded_auxiliary = [natural1_auxiliary, natural2_auxiliary]
@@ -255,7 +276,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             for reci in self.recognition_factors:
                 reci.eval()
 
-            if self.fit_params['auxiliary_update']:
+            if self.recognition_auxiliary is not None:
                 for reci in self.recognition_auxiliary:
                     reci.eval()
 
@@ -270,8 +291,8 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
 
             # Deduce Variational Distribution Parameters
-            natural1_variational = (natural1_prior + (natural1_factors - natural1_auxiliary).sum(0)) / (1 + num_factors)
-            natural2_variational = (natural2_prior + (natural2_factors - natural2_auxiliary).sum(0)) / (1 + num_factors)
+            natural1_variational = (natural1_prior + (natural1_factors + natural1_auxiliary).sum(0)) / (1 + num_factors)
+            natural2_variational = (natural2_prior + (natural2_factors + natural2_auxiliary).sum(0)) / (1 + num_factors)
 
             # Some Reshaping
             natural2_variational = natural2_variational.unsqueeze(0).repeat(natural1_variational.shape[0], 1, 1)
@@ -298,6 +319,13 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             self.dist_factors = distribution_factors
             self.dist_variational = distribution_variational
 
+            for reci in self.recognition_factors:
+                reci.train()
+
+            if self.recognition_auxiliary is not None:
+                for reci in self.recognition_auxiliary:
+                    reci.train()
+
         return distribution_variational, distribution_factors
 
     def _get_loss(self):
@@ -314,13 +342,13 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         natural1_auxiliary, natural2_auxiliary = self.forwarded_auxiliary
 
         # Delta natural1 for each factor ~ J x N x K
-        delta_natural1_jn = natural1_factors - natural1_auxiliary
+        delta_natural1_jn = natural1_factors + natural1_auxiliary
 
         # ~ N x K
         delta_natural1_n = delta_natural1_jn.sum(0)
 
         # Delta natural2 for each factor ~ J x K x K
-        delta_natural2_j = natural2_factors - natural2_auxiliary
+        delta_natural2_j = natural2_factors + natural2_auxiliary
 
         # Delta natural2 ~ K x K
         delta_natural2 = delta_natural2_j.sum(dim=0)
@@ -415,7 +443,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         # Responsabilities tmp1 ~ J x M x N (M = N)
         prod2 = torch.matmul(delta2_inv_j.unsqueeze(1), natural1_auxiliary.unsqueeze(-1))
         prod2 = torch.matmul(natural1_factors.unsqueeze(2).unsqueeze(-2), prod2.unsqueeze(1)).squeeze(-1).squeeze(-1)
-        sj_mn = - prod1 / 4 + prod2 / 2
+        sj_mn = - prod1 / 4 - prod2 / 2
 
         # Log Gamma ~ J x N
         log_numerator = sj_mn.diagonal(dim1=-1, dim2=-2)
@@ -456,6 +484,9 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             params[1]['scheduler'](opt) for params, opt in zip(all_params, all_optimizers)
         ]
 
+        # Decide to constrain or not auxiliary parameters
+        all_optimizers, all_scheduler = self._toggle_auxilary(observations, all_optimizers, all_scheduler)
+
         # Fit
         for epoch in range(num_epoch):
 
@@ -464,9 +495,6 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             # Current epoch losses
             loss_batch = []
-
-            # Decide to constrain or not auxiliary parameters
-            all_optimizers, all_scheduler = self._toggle_auxilary(observations, all_optimizers, all_scheduler)
 
             for batch_id, batch in enumerate(batches):
 
@@ -527,25 +555,23 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         self._init_factors(observations)
         self._init_precision_factors()
 
+        self._init_auxiliary(observations)
+        self._init_precision_auxiliary()
+
     def _toggle_auxilary(self, observations, optimizers, schedulers):
-        if not (self.fit_params['auxiliary_update']):
-            if self.fit_params['auxiliary_toggle'](self):
-                print('Toggling Auxiliary Factors Update')
-                self.fit_params['auxiliary_update'] = True
 
-                self._init_auxiliary(observations)
-                self._init_precision_auxiliary()
+        if self.fit_params['auxiliary_mode'] == 'flexible':
 
-                # Recognition Factors Parameters
-                auxiliary_param = [*self.precision_chol_vec_auxiliary.parameters()]
-                for cur_factor in self.recognition_auxiliary:
-                    auxiliary_param += cur_factor.parameters()
+            # Recognition Factors Parameters
+            auxiliary_param = [*self.precision_chol_vec_auxiliary.parameters()]
+            for cur_factor in self.recognition_auxiliary:
+                auxiliary_param += cur_factor.parameters()
 
-                optimizer = self.fit_params['auxiliary_params']['optimizer'](auxiliary_param)
-                scheduler = self.fit_params['auxiliary_params']['scheduler'](optimizer)
+            optimizer = self.fit_params['auxiliary_params']['optimizer'](auxiliary_param)
+            scheduler = self.fit_params['auxiliary_params']['scheduler'](optimizer)
 
-                optimizers.append(optimizer)
-                schedulers.append(scheduler)
+            optimizers.append(optimizer)
+            schedulers.append(scheduler)
 
         return optimizers, schedulers
 
