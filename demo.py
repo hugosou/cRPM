@@ -107,9 +107,13 @@ auxiliary_params = {
     'update_bool': False,
 }
 
+prior_params = {
+    'num_centroids': 3,
+}
+
 
 fit_params = {
-    'num_epoch': 2,
+    'num_epoch': 1,
     'batch_size': 1000,
     'auxiliary_update': True,
     'auxiliary_toggle': lambda x: x.epoch > 0,
@@ -117,6 +121,7 @@ fit_params = {
     'dim_latent': 3,
     'factors_params': factors_params,
     'auxiliary_params': factors_params,
+    'prior_params': prior_params,
     'ergodic': False,
     'pct': 0.1
 }
@@ -126,7 +131,21 @@ rpm = RPM(
     fit_params=fit_params,
 )
 
+
 rpm.fit(obs)
+
+
+rpm.get_posteriors(obs)
+
+
+
+
+
+
+
+
+
+
 
 
 rpm.get_posteriors(obs)

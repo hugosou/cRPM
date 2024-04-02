@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch import matmul
+from flexible_multivariate_normal import vector_to_tril
 from kernels import Kernel, RBFKernel
 from typing import List, Union
 
@@ -79,6 +80,21 @@ def _init_nn_param(
     return torch.nn.Parameter(params[0], requires_grad=params[1])
 
 
+class MixturePrior(nn.Module):
+    # TODO: Add an if to update or not the prior !
 
+    def __init__(self, responsabilities, centroids_natural1, centroids_natural2_chol_vec):
+        super().__init__()
 
+        self.num_centroids = responsabilities.shape[0]
+        assert self.num_centroids == centroids_natural1.shape[0], 'Invalid Shapes'
+        assert self.num_centroids == centroids_natural2_chol_vec.shape[0], 'Invalid Shapes'
+
+        self.responsabilities_param = torch.nn.Parameter(responsabilities)
+        self.responsabilities = torch.nn.Softmax(dim=-1)(self.responsabilities_param)
+        self.natural1 = torch.nn.Parameter(centroids_natural1)
+        self.natural2_chol_vec = torch.nn.Parameter(centroids_natural2_chol_vec)
+
+        natural2_tril = vector_to_tril(self.natural2_chol_vec)
+        self.natural2 = - matmul(natural2_tril, natural2_tril.transpose(-1, -2))
 

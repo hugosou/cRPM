@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import matmul
 
 import fast_recognition
+from prior import MixturePrior
 from flexible_multivariate_normal import vector_to_tril, vector_to_tril_diag_idx, tril_to_vector
 
 def _default_field(param: dict, key: str, default):
@@ -54,31 +55,42 @@ class Mixin:
         # Logger
         _default_field(self.fit_params, key='pct', default=0.01)
 
-        # Default Recognition Factors Parameters
-        _default_field(self.fit_params, key='factors_params', default={})
-        _default_field(self.fit_params, key='auxiliary_params', default={})
+        # Prior Parameters
+        _default_field(self.fit_params, key='prior_params', default={})
+        _default_field(self.fit_params['prior_params'], key='num_centroids', default=1)
+        _default_field(self.fit_params['prior_params'], key='optimizer', default=optimizer_closure_default)
+        _default_field(self.fit_params['prior_params'], key='scheduler', default=scheduler_closure_default)
 
         # Network Parameters
+        _default_field(self.fit_params, key='factors_params', default={})
         _default_field(self.fit_params['factors_params'], key='channels', default= _repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='kernel_conv', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='kernel_pool', default=_repeat_list((), num_factors))
         _default_field(self.fit_params['factors_params'], key='dim_hidden', default=_repeat_list((), num_factors))
-        _default_field(self.fit_params['factors_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
+        _default_field(self.fit_params['factors_params'], key='non_linearity', default=_repeat_list(F.relu, num_factors))
         _default_field(self.fit_params['factors_params'], key='dropout',  default=_repeat_list(0.0, num_factors))
-
-        # Auxiliary Network Parameters
-        _default_field(self.fit_params['auxiliary_params'], key='channels', default=_repeat_list((), num_factors))
-        _default_field(self.fit_params['auxiliary_params'], key='kernel_conv', default=_repeat_list((), num_factors))
-        _default_field(self.fit_params['auxiliary_params'], key='kernel_pool', default=_repeat_list((), num_factors))
-        _default_field(self.fit_params['auxiliary_params'], key='dim_hidden', default=_repeat_list((), num_factors))
-        _default_field(self.fit_params['auxiliary_params'], key='nonlinearity', default=_repeat_list(F.relu, num_factors))
-        _default_field(self.fit_params['auxiliary_params'], key='dropout', default=_repeat_list(0.0, num_factors))
-        
-        # Optimizer
         _default_field(self.fit_params['factors_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['factors_params'], key='scheduler', default=scheduler_closure_default)
-        _default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
-        _default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
+
+        # Variational Parameters (Necessary for non-closed form updates)
+        _default_field(self.fit_params, key='variational_params', default={})
+        _default_field(self.fit_params['variational_params'], key='dim_hidden', default=())
+        _default_field(self.fit_params['variational_params'], key='non_linearity', default=torch.nn.Identity)
+        _default_field(self.fit_params['variational_params'], key='dropout', default=0.0)
+        _default_field(self.fit_params['variational_params'], key='optimizer', default=optimizer_closure_default)
+        _default_field(self.fit_params['variational_params'], key='scheduler', default=scheduler_closure_default)
+
+        # TODO: Maybe re-instantiate this latter
+        # Auxiliary Network Parameters
+        # _default_field(self.fit_params, key='auxiliary_params', default={})
+        # _default_field(self.fit_params['auxiliary_params'], key='channels', default=_repeat_list((), num_factors))
+        # _default_field(self.fit_params['auxiliary_params'], key='kernel_conv', default=_repeat_list((), num_factors))
+        # _default_field(self.fit_params['auxiliary_params'], key='kernel_pool', default=_repeat_list((), num_factors))
+        # _default_field(self.fit_params['auxiliary_params'], key='dim_hidden', default=_repeat_list((), num_factors))
+        # _default_field(self.fit_params['auxiliary_params'], key='non_linearity', default=_repeat_list(F.relu, num_factors))
+        # _default_field(self.fit_params['auxiliary_params'], key='dropout', default=_repeat_list(0.0, num_factors))
+        #_default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
+        #_default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
 
     def _init_recognition(self, fit_params: dict, observations: list):
 
@@ -97,7 +109,7 @@ class Mixin:
 
         # Fully connected layers parameters
         dim_hidden = fit_params["dim_hidden"]
-        non_linearity = fit_params["nonlinearity"]
+        non_linearity = fit_params["non_linearity"]
 
         # Build and Append networks
         rec = []
@@ -120,21 +132,40 @@ class Mixin:
     def _init_prior(self):
         """ Initialise parameters of k=1..K independent kernels """
 
-        natural1 = torch.zeros(self.dim_latent, device=self.device, dtype=self.dtype)
-        natural2 = -0.5 * torch.eye(self.dim_latent, device=self.device, dtype=self.dtype)
+        if self.prior is None:
+            # Grasp Params
+            params = self.fit_params['prior_params']
+            num_centroids = params['num_centroids']
+            dim_latent = self.dim_latent
 
-        self.forwarded_prior = [natural1, natural2]
+            # 1st Natural Parameters
+            natural1, _ = _init_centroids(
+                num_centroids,
+                dim_latent,
+                ite_max=1000,
+                optimizer=lambda x: torch.optim.Adam(x, lr=1e-2),
+            )
+
+            # 2nd Natural Parameters (Vectorize Cholesky Decomposition)
+            diag_idx = vector_to_tril_diag_idx(dim_latent)
+            natural2_chol_vec = np.zeros((num_centroids, int(self.dim_latent * (self.dim_latent + 1) / 2)))
+            natural2_chol_vec[:, diag_idx] = np.sqrt(0.5)
+            natural2_chol_vec = torch.tensor(natural2_chol_vec)
+
+            # Mixture weights
+            responsibilities = torch.ones(num_centroids) / num_centroids
+
+            # Prior
+            self.prior = MixturePrior(
+                responsibilities,
+                natural1,
+                natural2_chol_vec
+            ).to(self.device.index).to(self.dtype)
 
     def _init_factors(self, observations):
         """ Initialize recognition network of each factor """
         if self.recognition_factors is None:
             self.recognition_factors = self._init_recognition(self.fit_params['factors_params'], observations)
-
-    def _init_auxiliary(self, observations):
-        """ Initialize auxiliary recognition networks """
-        if self.recognition_auxiliary is None:
-            self.recognition_auxiliary = copy.deepcopy(self.recognition_factors)
-            #self.recognition_auxiliary = self._init_recognition(self.fit_params['auxiliary_params'], observations)
 
     def _init_precision_factors(self):
 
@@ -146,40 +177,102 @@ class Mixin:
                 torch.tensor(chol, dtype=self.dtype)
             ).to(self.device.index)
 
-    def _init_precision_auxiliary(self):
+    def _init_variational(self):
+        if self.recognition_variational is None and self.prior.num_centroids > 1:
 
-        if self.precision_chol_vec_auxiliary is None:
+            params = self.fit_params['variational_params']
+            self.recognition_variational = fast_recognition.Net(
+                dim_input=[self.num_factors * self.dim_latent],
+                dim_latent=self.dim_latent,
+                dim_hidden= params['dim_hidden'],
+                non_linearity=params['non_linearity'],
+                dropout = params['dropout'],
+            ).to(self.device.index)
+
+    def _init_precision_variational(self):
+
+        if self.precision_chol_vec_variational is None and self.prior.num_centroids > 1:
 
             diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-            chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
-            chol[:, diag_idx] = np.sqrt(0.5)
-            self.precision_chol_vec_auxiliary = fast_recognition.Precision(
+            chol = np.zeros((int(self.dim_latent * (self.dim_latent + 1) / 2)))
+            chol[diag_idx] = np.sqrt(0.25)
+            self.precision_chol_vec_variational = fast_recognition.Precision(
                 torch.tensor(chol, dtype=self.dtype)
             ).to(self.device.index)
 
-            # with torch.no_grad():
-            #
-            #     # Get factors precision (not yet  offset by prior)
-            #     precision_factors_chol = vector_to_tril(self.precision_chol_vec_factors.chol_vec)
-            #     precision_factors = - matmul(precision_factors_chol, precision_factors_chol.transpose(-1, -2))
-            #
-            #     # Precision prior
-            #     precision_prior = self.forwarded_prior[1].unsqueeze(0)
-            #
-            # # Cholesky Decompose
-            # delta_chol = torch.linalg.cholesky(
-            #     - precision_prior - precision_factors - precision_factors.sum(dim=0, keepdim=True)
-            # )
-            #
-            # # Init
-            # self.precision_chol_vec_auxiliary = fast_recognition.Precision(
-            #     tril_to_vector(delta_chol)
-            # ).to(self.device.index)
+    # def _init_precision_auxiliary(self):
+    #
+    #     if self.precision_chol_vec_auxiliary is None:
+    #
+    #         diag_idx = vector_to_tril_diag_idx(self.dim_latent)
+    #         chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
+    #         chol[:, diag_idx] = np.sqrt(0.5)
+    #         self.precision_chol_vec_auxiliary = fast_recognition.Precision(
+    #             torch.tensor(chol, dtype=self.dtype)
+    #         ).to(self.device.index)
+    #
+    # def _init_auxiliary(self, observations):
+    #     """ Initialize auxiliary recognition networks """
+    #     if self.recognition_auxiliary is None:
+    #         self.recognition_auxiliary = copy.deepcopy(self.recognition_factors)
+    #         #self.recognition_auxiliary = self._init_recognition(self.fit_params['auxiliary_params'], observations)
 
-            # diag_idx = vector_to_tril_diag_idx(self.dim_latent)
-            # chol = np.zeros((self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2)))
-            # chol[:, diag_idx] = np.sqrt(0.5)
-            # # chol[:, diag_idx] = 0
-            # chol = 0.01 * np.random.randn(self.num_factors, int(self.dim_latent * (self.dim_latent + 1) / 2))
-            # self.precision_chol_vec_auxiliary = torch.tensor(chol, dtype=self.dtype, requires_grad=True, device=self.device)
 
+def pairwise_distance(samples):
+
+    # Number of samples
+    num_samples = samples.shape[0]
+
+    # normalize samples on the sphere
+    normalized_samples = samples / torch.sqrt((samples ** 2).sum(dim=-1, keepdim=True))
+
+    # Compute pairwise distance
+    pairwise_distances = ((normalized_samples.unsqueeze(0) - normalized_samples.unsqueeze(1)) ** 2).sum(-1)
+
+    # Fill the diagonal
+    pairwise_distances_mean_tmp = pairwise_distances.sum() / (num_samples * (num_samples - 1))
+    diag_idx = range(num_samples)
+    pairwise_distances[diag_idx, diag_idx] = pairwise_distances_mean_tmp
+
+    # Maximize minimal distance
+    loss = - pairwise_distances.min()
+
+    return loss, pairwise_distances, normalized_samples
+
+
+def _init_centroids(
+        num_centroids,
+        dim_centroids,
+        ite_max=10000,
+        optimizer=lambda x: torch.optim.Adam(x, lr=1e-2),
+):
+
+    if num_centroids == 1:
+        samples = torch.zeros(1, dim_centroids)
+        loss_tot = 0
+
+    elif num_centroids > 1:
+
+        # Init Centroids
+        samples_cur = torch.randn(num_centroids, dim_centroids, requires_grad=True)
+
+        # Optimizer
+        optim = optimizer([samples_cur])
+
+        loss_tot = []
+        for ite in range(ite_max):
+            optim.zero_grad()
+            loss, _, _ = pairwise_distance(samples_cur)
+            loss.backward()
+            optim.step()
+            loss_tot.append(loss.item())
+
+        # Normalize Optimal samples
+        samples = samples_cur.clone().detach()
+        with torch.no_grad():
+            _, pairwise_distances, samples = pairwise_distance(samples)
+
+    else:
+        raise NotImplementedError()
+
+    return samples, loss_tot

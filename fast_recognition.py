@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from flexible_multivariate_normal import vector_to_tril_diag_idx
+from flexible_multivariate_normal import vector_to_tril_diag_idx, vector_to_tril
 
 __all__ = [
     'MultiInputNet',
@@ -407,3 +407,8 @@ class Precision(nn.Module):
         super().__init__()
 
         self.chol_vec = torch.nn.Parameter(chol_vec, requires_grad=True)
+
+    def precision(self):
+        chol_tril = vector_to_tril(self.chol_vec)
+
+        return - torch.matmul(chol_tril, chol_tril.transpose(-1, -2))
