@@ -564,9 +564,20 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         for cur_factor in self.recognition_factors:
             factors_param += cur_factor.parameters()
 
+        prior_params = self.prior.parameters()
+
         all_params = [
             [factors_param, fit_params['factors_params']],
+            [prior_params, fit_params['prior_params']]
         ]
+
+        if self.recognition_variational is not None:
+            variational_params = [*self.precision_chol_vec_variational.parameters()]
+            variational_params += self.recognition_variational.parameters()
+
+            all_params.append(
+                [variational_params, fit_params['variational_params']]
+            )
 
         all_optimizers = [
             opt['optimizer'](param) for param, opt in all_params
@@ -575,9 +586,6 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         all_scheduler = [
             params[1]['scheduler'](opt) for params, opt in zip(all_params, all_optimizers)
         ]
-
-        # Decide to constrain or not auxiliary parameters
-        all_optimizers, all_scheduler = self._toggle_auxilary(observations, all_optimizers, all_scheduler)
 
         # Fit
         for epoch in range(num_epoch):

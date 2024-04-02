@@ -108,7 +108,7 @@ auxiliary_params = {
 }
 
 prior_params = {
-    'num_centroids': 3,
+    'num_centroids': 1,
 }
 
 
