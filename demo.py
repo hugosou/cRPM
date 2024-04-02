@@ -102,15 +102,9 @@ factors_params = {
     'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
 }
 
-auxiliary_params = {
-    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
-    'update_bool': False,
-}
-
 prior_params = {
     'num_centroids': 1,
 }
-
 
 fit_params = {
     'num_epoch': 1,
@@ -120,7 +114,6 @@ fit_params = {
     'auxiliary_mode': 'constrained_moment_matched', # flexible, constrained_prior, constrained_moment_matched
     'dim_latent': 3,
     'factors_params': factors_params,
-    'auxiliary_params': factors_params,
     'prior_params': prior_params,
     'ergodic': False,
     'pct': 0.1

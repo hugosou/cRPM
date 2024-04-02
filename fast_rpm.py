@@ -425,7 +425,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             # Prior Distributions
             # Mixture weights
-            mixture_weights = self.prior.responsabilities
+            mixture_weights = self.prior.responsabilities()
             # 1st and 2nd Natural Parameter
             natural1_prior = self.prior.natural1
             natural2_prior = self.prior.natural2()

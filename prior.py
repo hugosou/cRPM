@@ -91,11 +91,13 @@ class MixturePrior(nn.Module):
         assert self.num_centroids == centroids_natural2_chol_vec.shape[0], 'Invalid Shapes'
 
         self.responsabilities_param = torch.nn.Parameter(responsabilities)
-        self.responsabilities = torch.nn.Softmax(dim=-1)(self.responsabilities_param)
         self.natural1 = torch.nn.Parameter(centroids_natural1)
         self.natural2_chol_vec = torch.nn.Parameter(centroids_natural2_chol_vec)
 
     def natural2(self):
         natural2_tril = vector_to_tril(self.natural2_chol_vec)
         return - matmul(natural2_tril, natural2_tril.transpose(-1, -2))
+
+    def responsabilities(self):
+        return torch.nn.Softmax(dim=-1)(self.responsabilities_param)
 
