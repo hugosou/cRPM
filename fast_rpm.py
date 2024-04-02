@@ -181,7 +181,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
                 # Natural Parameters ~ 1 x 1 x K and 1 x K x K
                 natural1_prior = self.prior.natural1.unsqueeze(0)
-                natural2_prior = self.prior.natural2
+                natural2_prior = self.prior.natural2()
 
                 # Store
                 self.forwarded_offset = [natural1_prior, natural2_prior]
@@ -200,7 +200,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             # Prior Params ~ 1 x K and K x K
             natural1_prior = self.prior.natural1
-            natural2_prior = self.prior.natural2.squeeze(dim=0)
+            natural2_prior = self.prior.natural2().squeeze(dim=0)
 
             # Offset Params
             natural1_offset, natural2_offset = self.forwarded_offset
@@ -246,7 +246,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
         if auxiliary_mode in ['flexible', 'constrained_prior'] and self.prior.num_centroids == 1:
             # Prior Distributions
             natural1_prior = self.prior.natural1
-            natural2_prior = self.prior.natural2
+            natural2_prior = self.prior.natural2()
 
             natural1_factors += natural1_prior.unsqueeze(0)
             natural2_factors += natural2_prior
@@ -380,7 +380,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
 
             # Prior paramters ~ K (x K)
             # natural1_prior = self.prior.natural1.squeeze(0)
-            natural2_prior = self.prior.natural2.squeeze(0)
+            natural2_prior = self.prior.natural2().squeeze(0)
 
             # Invert and Determinent ~ K x K and 1 x 1
             # Id = - 1e10 * torch.eye(self.dim_latent, dtype = self.dtype, device=self.device)
@@ -428,7 +428,7 @@ class RPM(fast_initializations.Mixin, _updates.Mixin):
             mixture_weights = self.prior.responsabilities
             # 1st and 2nd Natural Parameter
             natural1_prior = self.prior.natural1
-            natural2_prior = self.prior.natural2
+            natural2_prior = self.prior.natural2()
             # log normaliser
             log_normaliser_prior = FlexibleMultivariateNormal(
                 natural1_prior,
