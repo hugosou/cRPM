@@ -75,7 +75,7 @@ class Mixin:
         # Variational Parameters (Necessary for non-closed form updates)
         _default_field(self.fit_params, key='variational_params', default={})
         _default_field(self.fit_params['variational_params'], key='dim_hidden', default=())
-        _default_field(self.fit_params['variational_params'], key='non_linearity', default=torch.nn.Identity)
+        _default_field(self.fit_params['variational_params'], key='non_linearity', default=torch.nn.Identity())
         _default_field(self.fit_params['variational_params'], key='dropout', default=0.0)
         _default_field(self.fit_params['variational_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['variational_params'], key='scheduler', default=scheduler_closure_default)
@@ -186,8 +186,9 @@ class Mixin:
                 dim_latent=self.dim_latent,
                 dim_hidden= params['dim_hidden'],
                 non_linearity=params['non_linearity'],
-                dropout = params['dropout'],
+                dropout=params['dropout'],
             ).to(self.device.index)
+
 
     def _init_precision_variational(self):
 
@@ -251,7 +252,11 @@ def _init_centroids(
         samples = torch.zeros(1, dim_centroids)
         loss_tot = 0
 
-    elif num_centroids > 1:
+    elif dim_centroids == 1:
+        samples = torch.linspace(-1, 1, num_centroids).unsqueeze(-1)
+        loss_tot = 0
+
+    elif num_centroids > 1 and dim_centroids > 1:
 
         # Init Centroids
         samples_cur = torch.randn(num_centroids, dim_centroids, requires_grad=True)

@@ -97,13 +97,19 @@ factors_params = {
     'kernel_conv': [[5, 5], [5, 5]],
     'kernel_pool': [[2, 2], [2, 2]],
     'dim_hidden': [[50], [50]],
-    'nonlinearity': [F.relu, F.relu],
+    'non_linearity': [torch.nn.Identity(), F.relu],
     'covariance': ['fixed_diag', 'fixed_diag'],
     'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
 }
 
 prior_params = {
-    'num_centroids': 1,
+    'num_centroids': 4,
+}
+
+variational_params = {
+    'dim_hidden': [10, 10],
+    'optimizer': lambda params: torch.optim.Adam(params=params, lr=1e-3),
+    'non_linearity': torch.nn.Identity,
 }
 
 fit_params = {
@@ -112,9 +118,10 @@ fit_params = {
     'auxiliary_update': True,
     'auxiliary_toggle': lambda x: x.epoch > 0,
     'auxiliary_mode': 'constrained_moment_matched', # flexible, constrained_prior, constrained_moment_matched
-    'dim_latent': 3,
+    'dim_latent': 1,
     'factors_params': factors_params,
     'prior_params': prior_params,
+    'variational_params': variational_params,
     'ergodic': False,
     'pct': 0.1
 }
@@ -154,3 +161,101 @@ print(9)
 
 
 
+#%%
+
+import numpy
+import torch
+
+
+
+
+def pairwise_distance(samples):
+
+    # Number of samples
+    num_samples = samples.shape[0]
+
+    # normalize samples on the sphere
+    normalized_samples = samples / torch.sqrt((samples ** 2).sum(dim=-1, keepdim=True))
+
+    # Compute pairwise distance
+    pairwise_distances = ((normalized_samples.unsqueeze(0) - normalized_samples.unsqueeze(1)) ** 2).sum(-1)
+
+    # Fill the diagonal
+    pairwise_distances_mean_tmp = pairwise_distances.sum() / (num_samples * (num_samples - 1))
+    diag_idx = range(num_samples)
+    pairwise_distances[diag_idx, diag_idx] = pairwise_distances_mean_tmp
+
+    # Maximize minimal distance
+    loss = - pairwise_distances.min()
+
+    return loss, pairwise_distances, normalized_samples
+
+
+def _init_centroids(
+        num_centroids,
+        dim_centroids,
+        ite_max=10000,
+        optimizer=lambda x: torch.optim.Adam(x, lr=1e-2),
+):
+
+    if num_centroids == 1:
+        samples = torch.zeros(1, dim_centroids)
+        loss_tot = 0
+
+    elif dim_centroids == 1:
+        samples = torch.linspace(-1, 1, num_centroids).unsqueeze(-1)
+        loss_tot = []
+
+    elif num_centroids > 1:
+
+        # Init Centroids
+        samples_cur = torch.randn(num_centroids, dim_centroids, requires_grad=True)
+
+        # Optimizer
+        optim = optimizer([samples_cur])
+
+        loss_tot = []
+        for ite in range(ite_max):
+            optim.zero_grad()
+            loss, _, _ = pairwise_distance(samples_cur)
+            loss.backward()
+            optim.step()
+            loss_tot.append(loss.item())
+
+        # Normalize Optimal samples
+        samples = samples_cur.clone().detach()
+        with torch.no_grad():
+            _, pairwise_distances, samples = pairwise_distance(samples)
+
+    else:
+        raise NotImplementedError()
+
+    return samples, loss_tot
+
+
+
+
+centroids, loss_tot = _init_centroids(
+        8,
+        1,
+        ite_max=5000,
+        optimizer=lambda x: torch.optim.Adam(x, lr=1e-3),
+    )
+
+
+#%%
+
+print(centroids)
+
+from matplotlib import pyplot as plt
+
+plt.figure()
+plt.plot(loss_tot)
+
+plt.figure()
+plt.scatter(centroids, centroids)
+
+#%%
+
+
+#%%
