@@ -259,3 +259,53 @@ plt.scatter(centroids, centroids)
 
 
 #%%
+
+
+from fast_recognition import Net
+
+
+def fit_to_target(
+        func,
+        func_target,
+        func_sample,
+        func_transform= lambda x: x,
+        func_loss=lambda x, y: ((x - y) ** 2).sum(),
+        optimizer=lambda x: torch.optim.AdamW(x, lr=1e-3, weight_decay=0.01),
+        ite_max=1000,
+):
+    """Fit a nn.Module() to a target for initialisation"""
+
+    # Init a buffer network
+    func_buffer = copy.deepcopy(func)
+
+    # Init Optimizer
+    optim = optimizer(func_buffer.parameters())
+
+    # Init Loss
+    loss_tot = []
+
+    # Fit
+    for ite in range(ite_max):
+        # Zero Past Gradients
+        optim.zero_grad()
+
+        # Sample Input
+        input_cur = func_sample()
+
+        # Target Output
+        target_cur = func_target(input_cur)
+
+        # Current Output
+        output_cur = func_buffer(func_transform(input_cur))
+
+        # Current Loss / Gradient
+        loss = func_loss(target_cur, output_cur)
+        loss.backward()
+        optim.step()
+
+        # Append Loss
+        loss_tot.append(loss.item())
+
+    return func_buffer, loss_tot
+
+

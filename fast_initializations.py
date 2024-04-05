@@ -10,19 +10,20 @@ import fast_recognition
 from prior import MixturePrior
 from flexible_multivariate_normal import vector_to_tril, vector_to_tril_diag_idx, tril_to_vector
 
+
 def _default_field(param: dict, key: str, default):
+    """Set Dictionaries default param if not provided"""
     if key not in param:
         param[key] = default
 
 
 def _repeat_list(val, num):
+    """Repeat element in list"""
     return [val for _ in range(num)]
 
 
 class Mixin:
-    """
-        Mixin class containing necessary methods for initializing RPGPFA model
-    """
+    """Mixin class containing necessary methods for initializing fast RPM model"""
 
     def _init_fit_params(self):
         """ Default Fit parameters """
@@ -48,11 +49,9 @@ class Mixin:
         _default_field(self.fit_params, key='batch_size', default=self.num_observation)
 
         # Constrain auxiliary
-        _default_field(self.fit_params, key='auxiliary_update', default=False)
-        _default_field(self.fit_params, key='auxiliary_toggle', default=lambda x: False)
-        _default_field(self.fit_params, key='auxiliary_mode', default='flexible')
+        _default_field(self.fit_params, key='auxiliary_mode', default='constrained_prior')
 
-        # Logger
+        # Logger verbosity (percentage of iteration)
         _default_field(self.fit_params, key='pct', default=0.01)
 
         # Prior Parameters
@@ -80,24 +79,15 @@ class Mixin:
         _default_field(self.fit_params['variational_params'], key='optimizer', default=optimizer_closure_default)
         _default_field(self.fit_params['variational_params'], key='scheduler', default=scheduler_closure_default)
 
-        # TODO: Maybe re-instantiate this latter
-        # Auxiliary Network Parameters
-        # _default_field(self.fit_params, key='auxiliary_params', default={})
-        # _default_field(self.fit_params['auxiliary_params'], key='channels', default=_repeat_list((), num_factors))
-        # _default_field(self.fit_params['auxiliary_params'], key='kernel_conv', default=_repeat_list((), num_factors))
-        # _default_field(self.fit_params['auxiliary_params'], key='kernel_pool', default=_repeat_list((), num_factors))
-        # _default_field(self.fit_params['auxiliary_params'], key='dim_hidden', default=_repeat_list((), num_factors))
-        # _default_field(self.fit_params['auxiliary_params'], key='non_linearity', default=_repeat_list(F.relu, num_factors))
-        # _default_field(self.fit_params['auxiliary_params'], key='dropout', default=_repeat_list(0.0, num_factors))
-        #_default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
-        #_default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
-
     def _init_recognition(self, fit_params: dict, observations: list):
+        """Recognition Function"""
 
+        # Input dimensions
         dim_inputs = [
             obsi.shape[1:] for obsi in observations
         ]
 
+        # Problem dimensions
         dim_latent = self.dim_latent
         num_factors = self.num_factors
 
@@ -130,15 +120,16 @@ class Mixin:
         return rec
 
     def _init_prior(self):
-        """ Initialise parameters of k=1..K independent kernels """
+        """ Prior Distribution: (mixture of) FlexibleMultivariateNormal """
 
         if self.prior is None:
+
             # Grasp Params
             params = self.fit_params['prior_params']
             num_centroids = params['num_centroids']
             dim_latent = self.dim_latent
 
-            # 1st Natural Parameters
+            # 1st Natural Parameters (with approx. uniform spacing)
             natural1, _ = _init_centroids(
                 num_centroids,
                 dim_latent,
@@ -168,6 +159,7 @@ class Mixin:
             self.recognition_factors = self._init_recognition(self.fit_params['factors_params'], observations)
 
     def _init_precision_factors(self):
+        """ Initialize precision of each factor """
 
         if self.precision_chol_vec_factors is None:
             diag_idx = vector_to_tril_diag_idx(self.dim_latent)
@@ -178,6 +170,17 @@ class Mixin:
             ).to(self.device.index)
 
     def _init_variational(self):
+        """
+        If the variational is not closed form: Initialize its recognition network.
+
+        Notes:
+            - The optimal variational first natural parameter can be expressed as a function of the first natural
+            parameters of the recognition factors. We directly use them as input.
+
+            - We empirically observed that initializing by averaging the recognition output was beneficial.
+            It is therefore implemented by _pretrain_to_target
+        """
+
         if self.recognition_variational is None and self.prior.num_centroids > 1:
 
             params = self.fit_params['variational_params']
@@ -189,6 +192,25 @@ class Mixin:
                 dropout=params['dropout'],
             ).to(self.device.index)
 
+            # Transform input function
+            transform = lambda x: x.reshape(x.shape[0], -1)
+
+            # Sample input functon
+            input_shape = [1000, self.num_factors, self.dim_latent]
+            sample = lambda: 100 * torch.randn(input_shape, device=self.device, dtype=self.dtype)
+
+            # Target Function
+            target = lambda x: x.mean(dim=-2)
+
+            # Pre-train the variational recognition
+            _ = _pretrain_to_target(
+                func=self.recognition_variational,
+                func_target=target,
+                func_sample=sample,
+                func_transform=transform,
+                stop_criterion=lambda x: x[-1] < 1e-2,
+                ite_max=2000,
+            )
 
     def _init_precision_variational(self):
 
@@ -247,6 +269,7 @@ def _init_centroids(
         ite_max=10000,
         optimizer=lambda x: torch.optim.Adam(x, lr=1e-2),
 ):
+    """Small helper to initialize mixture centroids ~ uniformly on a hypersphere"""
 
     if num_centroids == 1:
         samples = torch.zeros(1, dim_centroids)
@@ -281,3 +304,71 @@ def _init_centroids(
         raise NotImplementedError()
 
     return samples, loss_tot
+
+
+def _pretrain_to_target(
+        func,
+        func_target,
+        func_sample,
+        func_transform=lambda x: x,
+        func_loss=lambda x, y: ((x - y) ** 2).mean(),
+        optimizer=lambda x: torch.optim.AdamW(x, lr=5e-3, weight_decay=0.01),
+        ite_max=1000,
+        stop_criterion=lambda x: False,
+):
+    """Helper to pre-train a nn.Module() to a target"""
+
+    # Init a buffer network
+    func_buffer = copy.deepcopy(func)
+
+    # Init Optimizer
+    optim = optimizer(func_buffer.parameters())
+
+    # Init Loss
+    loss_tot = []
+
+    # Fit
+    for ite in range(ite_max):
+
+        # Zero Past Gradients
+        optim.zero_grad()
+
+        # Sample Input
+        input_cur = func_sample()
+
+        # Target Output
+        target_cur = func_target(input_cur)
+
+        # Current Output
+        output_cur = func_buffer(func_transform(input_cur))
+
+        # Current Loss / Gradient
+        loss = func_loss(target_cur, output_cur)
+        loss.backward()
+        optim.step()
+
+        # Append Loss
+        loss_tot.append(loss.item())
+
+        if ite > 1:
+            if stop_criterion(loss_tot):
+                print('Pre-Training Completed. Stop Criterion Reached.')
+                break
+            elif ite == ite_max - 1:
+                print('Pre-Training Completed. Stop Criterion Not satisfied.')
+
+    func.load_state_dict(func_buffer.state_dict())
+
+    return loss_tot
+
+# TODO: Maybe re-instantiate this latter
+# Auxiliary Network Parameters
+# _default_field(self.fit_params, key='auxiliary_params', default={})
+# _default_field(self.fit_params['auxiliary_params'], key='channels', default=_repeat_list((), num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='kernel_conv', default=_repeat_list((), num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='kernel_pool', default=_repeat_list((), num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='dim_hidden', default=_repeat_list((), num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='non_linearity', default=_repeat_list(F.relu, num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='dropout', default=_repeat_list(0.0, num_factors))
+# _default_field(self.fit_params['auxiliary_params'], key='optimizer', default=optimizer_closure_default)
+# _default_field(self.fit_params['auxiliary_params'], key='scheduler', default=scheduler_closure_default)
