@@ -97,8 +97,8 @@ class MixturePrior(nn.Module):
     def natural2(self, jitter=1e-6):
 
         Id = torch.eye(self.natural2_chol_vec.shape[-1], device=self.natural2_chol_vec.device, dtype = self.natural2_chol_vec.dtype)
-        natural2_tril = vector_to_tril(self.natural2_chol_vec) + jitter * Id
-        return - matmul(natural2_tril, natural2_tril.transpose(-1, -2))
+        natural2_tril = vector_to_tril(self.natural2_chol_vec)
+        return - matmul(natural2_tril, natural2_tril.transpose(-1, -2)) - jitter * Id
 
     def responsabilities(self):
         return torch.nn.Softmax(dim=-1)(self.responsabilities_param)
